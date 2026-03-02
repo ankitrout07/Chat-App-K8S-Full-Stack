@@ -22,21 +22,76 @@
             --bubble-me: #b58900;
             --bubble-them: #073642;
         }
-        body { background-color: var(--bg-main); transition: all 0.4s ease; }
+        body { background-color: var(--bg-main); transition: background-color 0.35s ease; }
+
+        .input {
+            border-radius: 16px;
+            padding: 14px 16px;
+            outline: none;
+            background: rgba(2, 6, 23, 0.55);
+            border: 1px solid rgba(148, 163, 184, 0.16);
+        }
+        .input:focus { border-color: rgba(59, 130, 246, 0.6); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.16); }
+
+        .kbd {
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            background: rgba(2, 6, 23, 0.35);
+            padding: 2px 6px;
+            border-radius: 8px;
+            font-size: 11px;
+        }
         .glass { background: var(--bg-glass); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
         .chat-wallpaper { background-image: url('https://w0.peakpx.com/wallpaper/508/606/HD-wallpaper-whatsapp-dark-background-whatsapp-dark-mode.jpg'); background-size: cover; background-blend-mode: overlay; }
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.35); border-radius: 999px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(2, 6, 23, 0.35); border-radius: 999px; }
+        /* toast */
+        .toast {
+            position: fixed;
+            top: 82px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 80;
+            padding: 10px 14px;
+            border-radius: 999px;
+            background: rgba(2, 6, 23, 0.72);
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            backdrop-filter: blur(12px);
+            color: rgba(226, 232, 240, 0.95);
+            font-size: 12px;
+            display: none;
+        }
+
+        .ring-soft { box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.16) inset; }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            border-radius: 16px;
+            padding: 12px 14px;
+            font-weight: 800;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+            transition: transform 120ms ease, filter 120ms ease, box-shadow 120ms ease;
+        }
+        .btn:active { transform: translateY(1px); }
+        .btn-primary { background: var(--accent); box-shadow: 0 14px 35px rgba(37, 99, 235, 0.28); }
+        .btn-ghost { background: rgba(148, 163, 184, 0.12); }
+        .btn-ghost:hover { background: rgba(148, 163, 184, 0.18); }
     </style>
 </head>
-<body class="h-screen text-slate-200 overflow-hidden font-sans">
+<body class="h-screen text-slate-200 overflow-hidden font-sans selection:bg-blue-500/30 selection:text-slate-100">
 
-    <nav class="glass fixed top-0 w-full h-16 z-50 flex items-center justify-between px-8">
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <nav class="glass fixed top-0 w-full h-16 z-50 flex items-center justify-between px-4 sm:px-8">
         <div class="flex items-center gap-3">
             <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-black uppercase shadow-lg shadow-blue-500/20">T</div>
             <span class="font-bold text-xl tracking-tighter uppercase">Tunnel<span class="text-blue-500">Pro</span></span>
         </div>
-        <div class="flex gap-8">
+        <div class="hidden sm:flex gap-8">
             <button onclick="showView('home')" class="text-sm font-bold uppercase" id="nav-home">Home</button>
             <button onclick="showView('arch')" class="text-sm font-bold uppercase text-slate-400" id="nav-arch">Architecture</button>
         </div>
@@ -46,23 +101,38 @@
             <span id="msg-count" class="text-[10px] font-black text-emerald-500 uppercase">0 msgs</span>
         </div>
         <div class="relative">
-            <button id="theme-btn" class="ml-4 text-sm font-bold uppercase text-slate-200">Themes</button>
-            <div id="theme-menu" class="hidden absolute right-0 mt-2 w-40 bg-slate-800 rounded-lg shadow-lg p-3">
-                <label class="flex items-center gap-2"><input type="radio" name="theme" value="dark">Dark</label>
-                <label class="flex items-center gap-2"><input type="radio" name="theme" value="light">Light</label>
-                <label class="flex items-center gap-2"><input type="radio" name="theme" value="solar">Solar</label>
+            <button id="theme-btn" class="ml-3 text-xs sm:text-sm font-black uppercase text-slate-200 btn btn-ghost px-3 py-2">Themes</button>
+            <div id="theme-menu" class="hidden absolute right-0 mt-2 w-48 bg-slate-900/90 ring-soft rounded-2xl shadow-2xl p-3">
+                <p class="text-[10px] font-black uppercase text-slate-400 px-2 pb-2">Theme</p>
+                <label class="flex items-center gap-2 px-2 py-2 rounded-xl hover:bg-white/5 cursor-pointer"><input type="radio" name="theme" value="dark">Dark</label>
+                <label class="flex items-center gap-2 px-2 py-2 rounded-xl hover:bg-white/5 cursor-pointer"><input type="radio" name="theme" value="light">Light</label>
+                <label class="flex items-center gap-2 px-2 py-2 rounded-xl hover:bg-white/5 cursor-pointer"><input type="radio" name="theme" value="solar">Solar</label>
             </div>
         </div>
     </nav>
 
     <main class="mt-16 h-[calc(100vh-64px)]">
-        <section id="view-home" class="view flex items-center justify-center min-h-full">
-            <div class="w-full max-w-md bg-slate-900/40 p-10 rounded-[2.5rem] border border-white/5">
-                <div id="user-list" class="space-y-4 mb-8"></div>
-                <div id="add-user-container" class="flex gap-3">
-                    <input id="new-username" class="flex-grow bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 outline-none focus:ring-1 focus:ring-blue-500" placeholder="New Profile...">
-                    <button onclick="addUser()" class="bg-blue-600 p-5 rounded-2xl shadow-xl"><i class="fas fa-plus"></i></button>
+        <section id="view-home" class="view flex items-center justify-center min-h-full px-4">
+            <div class="w-full max-w-xl bg-slate-900/35 ring-soft p-8 sm:p-10 rounded-[2.5rem] border border-white/5">
+                <div class="flex items-start justify-between gap-4 mb-6">
+                    <div>
+                        <h2 class="text-lg sm:text-xl font-black tracking-tight">Profiles</h2>
+                        <p class="text-xs text-slate-400 mt-1">Create up to 2 local profiles. Click to open chat.</p>
+                    </div>
+                    <div class="hidden sm:flex items-center gap-2 text-xs text-slate-400">
+                        <span class="kbd">Ctrl</span><span class="kbd">K</span>
+                        <span class="ml-2">Search</span>
+                    </div>
                 </div>
+
+                <div id="user-list" class="space-y-3 mb-6"></div>
+
+                <div id="add-user-container" class="flex flex-col sm:flex-row gap-3">
+                    <input id="new-username" class="flex-grow input" placeholder="New profile name…">
+                    <button onclick="addUser()" class="btn btn-primary sm:w-auto"><i class="fas fa-plus"></i><span class="text-xs">Add</span></button>
+                </div>
+
+                <p class="text-[11px] text-slate-500 mt-4">Tip: Press <span class="kbd">Esc</span> to close chat.</p>
             </div>
         </section>
 
@@ -76,7 +146,7 @@
         </section>
     </main>
 
-        <div id="chat-section" class="hidden fixed inset-0 z-[60] flex flex-col h-full bg-[#020617]" data-theme="dark">
+        <div id="chat-section" class="hidden fixed inset-0 z-[60] flex flex-col h-full bg-[var(--bg-main)]" data-theme="dark">
         <header class="p-4 glass flex justify-between items-center shadow-lg">
             <button id="clear-chat" class="text-slate-400 hover:text-red-400 p-2"><i class="fas fa-trash-alt"></i></button>
             <div class="flex items-center gap-3">
@@ -89,14 +159,20 @@
             <button onclick="closeChat()" class="text-slate-400 hover:text-red-400 p-2"><i class="fas fa-times text-xl"></i></button>
         </header>
         <!-- search/filter bar -->
-        <div class="p-2 bg-slate-800">
-            <input id="search" class="w-full bg-slate-700/50 text-sm rounded-lg px-3 py-2 outline-none" placeholder="Search messages...">
+        <div class="p-3 bg-slate-900/70 border-b border-white/5">
+            <div class="max-w-5xl mx-auto flex items-center gap-3">
+                <div class="flex-grow relative">
+                    <i class="fas fa-magnifying-glass text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 text-xs"></i>
+                    <input id="search" class="w-full input pl-9 text-sm" placeholder="Search messages… (Ctrl+K)">
+                </div>
+                <button id="jump-bottom" class="btn btn-ghost px-3 py-2" title="Jump to latest"><i class="fas fa-arrow-down"></i></button>
+            </div>
         </div>
         <main id="messages" class="flex-grow p-6 space-y-4 overflow-y-auto chat-wallpaper custom-scrollbar"></main>
         <footer class="p-4 glass">
             <form id="form" class="max-w-5xl mx-auto flex gap-3">
-                <input id="input" autocomplete="off" class="flex-grow bg-slate-800 rounded-2xl px-6 py-4 outline-none border border-white/5 focus:border-blue-500" placeholder="Send secure message...">
-                <button class="bg-blue-600 p-4 rounded-2xl w-14 shadow-xl"><i class="fas fa-paper-plane"></i></button>
+                <input id="input" autocomplete="off" class="flex-grow input" placeholder="Send message…">
+                <button id="send-btn" class="btn btn-primary w-14" title="Send"><i class="fas fa-paper-plane"></i></button>
             </form>
         </footer>
     </div>
@@ -167,9 +243,21 @@
         let users = JSON.parse(localStorage.getItem('k8s_private_users') || '[]');
         let typingTimeout;
 
+        function toast(msg) {
+            const el = document.getElementById('toast');
+            el.textContent = msg;
+            el.style.display = 'block';
+            clearTimeout(el._t);
+            el._t = setTimeout(() => (el.style.display = 'none'), 1800);
+        }
+
         function showView(viewId) {
             document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
             document.getElementById('view-' + viewId).classList.remove('hidden');
+
+            // nav color state
+            document.getElementById('nav-home').classList.toggle('text-slate-400', viewId !== 'home');
+            document.getElementById('nav-arch').classList.toggle('text-slate-400', viewId !== 'arch');
         }
 
         function login(name) {
@@ -177,6 +265,10 @@
             document.getElementById('chat-section').classList.remove('hidden');
             document.getElementById('current-display-name').innerText = name;
             document.getElementById('current-avatar').innerText = name[0].toUpperCase();
+            document.getElementById('input').focus();
+            toast(`Signed in as ${name}`);
+            document.getElementById('search').value = '';
+            filterMessages();
         }
 
         function closeChat() { document.getElementById('chat-section').classList.add('hidden'); }
@@ -203,8 +295,15 @@
         }
 
         function addUser() {
-            const name = document.getElementById('new-username').value.trim();
-            if (name && users.length < 2) { users.push(name); localStorage.setItem('k8s_private_users', JSON.stringify(users)); renderUsers(); }
+            const inputEl = document.getElementById('new-username');
+            const name = inputEl.value.trim();
+            if (!name) return toast('Enter a profile name');
+            if (users.length >= 2) return toast('Only 2 profiles allowed');
+            users.push(name);
+            localStorage.setItem('k8s_private_users', JSON.stringify(users));
+            inputEl.value = '';
+            renderUsers();
+            toast('Profile added');
         }
 
         function deleteUser(name) { users = users.filter(u => u !== name); localStorage.setItem('k8s_private_users', JSON.stringify(users)); renderUsers(); }
@@ -384,6 +483,21 @@
             updateMessageCount();
         });
 
+        // keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeChat();
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+                e.preventDefault();
+                const chatOpen = !document.getElementById('chat-section').classList.contains('hidden');
+                if (chatOpen) document.getElementById('search').focus();
+            }
+        });
+
+        // jump to bottom
+        document.getElementById('jump-bottom').addEventListener('click', () => {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        });
+
         renderUsers();
         // attach clear chat button logic
         document.getElementById('clear-chat').addEventListener('click', () => {
@@ -391,6 +505,7 @@
                 socket.emit('clear chat');
                 document.getElementById('messages').innerHTML = '';
                 updateMessageCount();
+                toast('Chat cleared');
             }
         });
         // load initial batch of messages then scroll to bottom
