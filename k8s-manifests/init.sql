@@ -11,9 +11,10 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS messages (
   id SERIAL PRIMARY KEY,
   user_id INT REFERENCES users(id) ON DELETE CASCADE,
-  sender TEXT NOT NULL, -- Keep for backwards compatibility/display
+  sender TEXT NOT NULL,
   text TEXT NOT NULL,
   time TEXT NOT NULL,
+  room TEXT NOT NULL DEFAULT 'global',
   delivered_at TIMESTAMP NULL,
   read_at TIMESTAMP NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

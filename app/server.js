@@ -103,27 +103,29 @@ app.post('/upload', upload.single('file'), (req, res) => {
     res.json({ url: `/uploads/${req.file.filename}`, name: req.file.originalname });
 });
 
-// --- MONITORING ---
-app.get('/stats', (req, res) => {
-    res.json({
-        uptime: process.uptime(),
-        memory: process.memoryUsage(),
-        cpu: process.cpuUsage(),
-        connections: io.engine.clientsCount,
-        platform: process.platform
-    });
+// --- USERS ---
+app.get('/users', async (req, res) => {
+    try {
+        const result = await db.query('SELECT id, username FROM users');
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
+
+// --- MONITORING ---
 
 // return chat history with pagination
 app.get('/messages', async (req, res) => {
     const limit = parseInt(req.query.limit, 10) || 50;
     const offset = parseInt(req.query.offset, 10) || 0;
+    const room = req.query.room || 'global';
     try {
         const result = await db.query(
-            `SELECT m.id, m.sender, m.text, m.time, m.delivered_at, m.read_at, m.created_at, m.user_id,
+            `SELECT m.id, m.sender, m.text, m.time, m.delivered_at, m.read_at, m.created_at, m.user_id, m.room,
             (SELECT json_agg(re) FROM (SELECT r.emoji, r.user_id, u.username FROM reactions r JOIN users u ON r.user_id = u.id WHERE r.message_id = m.id) re) as reactions
-            FROM messages m ORDER BY m.created_at DESC LIMIT $1 OFFSET $2`,
-            [limit, offset]
+            FROM messages m WHERE m.room = $1 ORDER BY m.created_at DESC LIMIT $2 OFFSET $3`,
+            [room, limit, offset]
         );
         res.json(result.rows);
     } catch (err) {
@@ -131,15 +133,60 @@ app.get('/messages', async (req, res) => {
     }
 });
 
+// --- SOCKET.IO MIDDLEWARE (JWT AUTH) ---
+io.use((socket, next) => {
+    const token = socket.handshake.auth.token;
+    if (!token) return next(new Error('Authentication error: Token missing'));
+
+    jwt.verify(token, JWT_SECRET, (err, decoded) => {
+        if (err) return next(new Error('Authentication error: Invalid token'));
+        socket.user = decoded; // { id, username }
+        next();
+    });
+});
+
+// Presence tracking (userId -> set of socketIds)
+const onlineUsers = new Map();
+
 io.on('connection', (socket) => {
-    console.log(`✓ Client connected: ${socket.id}`);
+    const { id: userId, username } = socket.user;
+    console.log(`✓ Client authenticated: ${username} (${socket.id})`);
+
+    // Add to online tracking
+    if (!onlineUsers.has(userId)) {
+        onlineUsers.set(userId, new Set());
+        io.emit('user:online', { userId, username });
+    }
+    onlineUsers.get(userId).add(socket.id);
+
+    // Initial sync of online users for the newly connected client
+    socket.emit('online:list', Array.from(onlineUsers.keys()));
 
     socket.on('disconnect', () => {
-        console.log(`✗ Client disconnected: ${socket.id}`);
+        console.log(`✗ Client disconnected: ${username} (${socket.id})`);
+        
+        const sockets = onlineUsers.get(userId);
+        if (sockets) {
+            sockets.delete(socket.id);
+            if (sockets.size === 0) {
+                onlineUsers.delete(userId);
+                io.emit('user:offline', { userId, username });
+            }
+        }
     });
 
-    // broadcast typing notifications to everyone except the originator
-    socket.on('typing', (data) => socket.broadcast.emit('typing', data));
+    socket.on('join room', (room) => {
+        // Leave previous rooms if any
+        Array.from(socket.rooms).forEach(r => { if (r !== socket.id) socket.leave(r); });
+        socket.join(room);
+        console.log(`✓ ${username} joined room: ${room}`);
+    });
+
+    // broadcast typing notifications to everyone in the room except the originator
+    socket.on('typing', (data) => {
+        const room = data.room || 'global';
+        socket.to(room).emit('typing', data);
+    });
 
     // message deletion (also persist in DB)
     socket.on('delete message', async (msgId) => {
@@ -151,20 +198,22 @@ io.on('connection', (socket) => {
 
     // new chat message - insert into db
     socket.on('chat message', async (data) => {
+        const room = data.room || 'global';
         try {
             const res = await db.query(
-                'INSERT INTO messages (user_id, sender, text, time) VALUES ($1, $2, $3, $4) RETURNING id, created_at',
-                [data.userId || null, data.user, data.text, data.time]
+                'INSERT INTO messages (user_id, sender, text, time, room) VALUES ($1, $2, $3, $4, $5) RETURNING id, created_at',
+                [socket.user.id, socket.user.username, data.text, data.time, room]
             );
             const msgId = res.rows[0].id;
             const createdAt = res.rows[0].created_at;
-            io.emit('chat message', {
-                sender: data.user,
-                userId: data.userId,
+            io.to(room).emit('chat message', {
+                sender: socket.user.username,
+                userId: socket.user.id,
                 text: data.text,
                 time: data.time,
                 id: msgId,
-                created_at: createdAt
+                created_at: createdAt,
+                room: room
             });
         } catch (err) { console.error('Save failed:', err.message); }
     });
@@ -172,12 +221,12 @@ io.on('connection', (socket) => {
     // Reactions
     socket.on('reaction', async (data) => {
         try {
-            // data: { messageId, userId, emoji }
+            // data: { messageId, emoji }
             await db.query(
                 'INSERT INTO reactions (message_id, user_id, emoji) VALUES ($1, $2, $3) ON CONFLICT (message_id, user_id, emoji) DO NOTHING',
-                [data.messageId, data.userId, data.emoji]
+                [data.messageId, socket.user.id, data.emoji]
             );
-            io.emit('reaction', data);
+            io.emit('reaction', { ...data, userId: socket.user.id, username: socket.user.username });
         } catch (err) { console.error('Reaction failed:', err.message); }
     });
 

@@ -51,58 +51,103 @@
         .markdown-code { background: rgba(0,0,0,0.3); padding: 2px 4px; border-radius: 4px; font-family: monospace; font-size: 0.9em; }
         .chat-link { color: #93c5fd; text-decoration: underline; text-underline-offset: 2px; }
         .chat-image { max-width: 100%; max-height: 250px; object-fit: cover; border-radius: 8px; margin-top: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); cursor: pointer; }
+        .online-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; background: #10b981; box-shadow: 0 0 10px rgba(16, 185, 129, 0.5); }
+        .offline-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; background: #64748b; }
+        .sidebar { width: 280px; flex-shrink: 0; background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(20px); border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 50; }
+        .sidebar-item { padding: 10px 16px; border-radius: 12px; cursor: pointer; margin: 2px 8px; font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 10px; transition: all 0.2s; }
+        .sidebar-item:hover { background: rgba(255,255,255,0.05); }
+        .sidebar-item.active { background: var(--accent); color: white; }
+        .sidebar-label { padding: 16px 20px 8px; font-size: 10px; font-weight: 900; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.1em; }
+        
+        /* Pulse Animation for Cluster */
+        @keyframes pulse-ring { 0% { transform: scale(0.33); } 80%, 100% { opacity: 0; } }
+        @keyframes pulse-dot { 0% { transform: scale(0.8); } 50% { transform: scale(1); } 100% { transform: scale(0.8); } }
+        .cluster-node { position: relative; width: 40px; height: 40px; }
+        .cluster-node:before { content: ''; position: absolute; left: -20px; top: -20px; width: 80px; height: 80px; border-radius: 45px; background-color: #01a4e9; animation: pulse-ring 1.25s cubic-bezier(0.215, 0.61, 0.355, 1) infinite; }
+        .cluster-node:after { content: ''; position: absolute; left: 0; top: 0; width: 40px; height: 40px; border-radius: 20px; background-color: white; box-shadow: 0 0 8px rgba(0,0,0,0.3); animation: pulse-dot 1.25s cubic-bezier(0.455, 0.03, 0.515, 0.955) -0.4s infinite; }
     </style>
 </head>
-<body class="h-screen overflow-hidden font-sans selection:bg-blue-500/30 selection:text-slate-100">
+<body class="h-screen overflow-hidden font-sans selection:bg-blue-500/30 selection:text-slate-100 flex">
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-    <nav class="glass fixed top-0 w-full h-16 z-50 flex items-center justify-between px-4 sm:px-8 border-b">
-        <div class="flex items-center gap-3">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar hidden md:flex">
+        <div class="h-16 flex items-center px-6 gap-3 border-b border-white/5">
             <div class="w-8 h-8 rounded-lg flex items-center justify-center font-black uppercase text-white shadow-lg shadow-blue-500/20" style="background:var(--accent)">T</div>
-            <span class="font-bold text-xl tracking-tighter uppercase cursor-pointer" onclick="showView('home')">Tunnel<span style="color:var(--accent)">Pro</span></span>
+            <span class="font-bold text-lg tracking-tighter uppercase">Tunnel<span style="color:var(--accent)">Pro</span></span>
         </div>
-        <div class="hidden lg:flex gap-6">
-            <button onclick="showView('home')" class="text-sm font-bold uppercase transition-colors" id="nav-home">Home</button>
-            <button onclick="showView('arch')" class="text-sm font-bold uppercase text-muted transition-colors" id="nav-arch">Architecture</button>
-            <button onclick="showView('tech')" class="text-sm font-bold uppercase text-muted transition-colors" id="nav-tech">Tech Stack</button>
-            <button onclick="showView('about')" class="text-sm font-bold uppercase text-muted transition-colors" id="nav-about">About</button>
-            <button onclick="showView('themes')" class="text-sm font-bold uppercase text-muted transition-colors" id="nav-themes">Themes</button>
-            <button onclick="showView('monitor')" class="text-sm font-bold uppercase text-muted transition-colors" id="nav-monitor">Monitor</button>
-        </div>
-        <div class="flex items-center gap-4">
-            <div id="auth-nav" class="hidden sm:flex items-center gap-2">
-                <span id="nav-username" class="text-xs font-bold uppercase"></span>
-                <button onclick="logout()" class="text-[10px] font-black uppercase text-red-500 hover:text-red-400">Logout</button>
-            </div>
-            <button id="login-btn" onclick="openAuthModal()" class="text-xs font-bold uppercase btn btn-primary px-4 py-2">Login</button>
-            <div class="flex items-center gap-2 border-l pl-4">
-                <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-                <span id="session-count" class="text-[10px] font-black text-emerald-500 uppercase">1 Node</span>
-            </div>
-        </div>
-    </nav>
+        
+        <div class="flex-grow overflow-y-auto custom-scrollbar pt-4">
+            <div class="sidebar-label">Global Channels</div>
+            <div class="sidebar-item active" onclick="joinRoom('global')"><i class="fas fa-hashtag"></i> general</div>
+            <div class="sidebar-item" onclick="joinRoom('#dev-ops')"><i class="fas fa-hashtag"></i> dev-ops</div>
+            <div class="sidebar-item" onclick="joinRoom('#k8s-logs')"><i class="fas fa-hashtag"></i> k8s-logs</div>
 
-    <main class="mt-16 h-[calc(100vh-64px)] overflow-y-auto custom-scrollbar">
-        <section id="view-home" class="view flex items-center justify-center min-h-full px-4 py-8">
-            <div class="w-full max-w-xl panel p-8 sm:p-10 rounded-[2.5rem] shadow-2xl">
-                <div class="flex items-start justify-between gap-4 mb-6">
-                    <div>
-                        <h2 class="text-lg sm:text-xl font-black tracking-tight" style="color:var(--text-main)">Profiles</h2>
-                        <p class="text-xs text-muted mt-1">Create up to 2 local profiles. Click to open chat.</p>
-                    </div>
-                    <div class="hidden sm:flex items-center gap-2 text-xs text-muted">
-                        <span class="kbd">Ctrl</span><span class="kbd">K</span>
-                        <span class="ml-2">Search</span>
-                    </div>
+            <div class="sidebar-label">Direct Messages</div>
+            <div id="sidebar-users" class="space-y-1"></div>
+
+            <div class="sidebar-label">Infrastructure</div>
+            <div id="nav-monitor" class="sidebar-item" onclick="showView('monitor')"><i class="fas fa-gauge-high"></i> Monitoring</div>
+            <div id="nav-arch" class="sidebar-item" onclick="showView('arch')"><i class="fas fa-server"></i> Architecture</div>
+            <div id="nav-themes" class="sidebar-item" onclick="showView('themes')"><i class="fas fa-palette"></i> Appearance</div>
+        </div>
+
+        <div class="p-4 border-t border-white/5">
+            <div id="auth-nav" class="hidden flex items-center justify-between gap-2 p-3 rounded-2xl bg-white/5">
+                <div class="flex items-center gap-3">
+                    <div id="user-avatar-mini" class="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white text-xs" style="background:var(--accent)">?</div>
+                    <span id="nav-username" class="text-xs font-black uppercase truncate max-w-[100px]"></span>
                 </div>
-                <div id="user-list" class="space-y-3 mb-6"></div>
-                <div id="add-user-container" class="flex flex-col sm:flex-row gap-3">
-                    <input id="new-username" class="flex-grow input" placeholder="New profile name…">
-                    <button onclick="addUser()" class="btn btn-primary sm:w-auto"><i class="fas fa-plus mr-2"></i><span class="text-xs">Add</span></button>
-                </div>
-                <p class="text-[11px] text-muted mt-4">Tip: Press <span class="kbd">Esc</span> to close chat.</p>
+                <button onclick="logout()" class="text-red-500 hover:text-red-400 p-1"><i class="fas fa-power-off"></i></button>
             </div>
+            <button id="login-btn" onclick="openAuthModal()" class="w-full btn btn-primary py-2 text-xs">Sign In</button>
+        </div>
+    </aside>
+
+    <div class="flex-grow flex flex-col h-full overflow-hidden relative">
+        <nav class="glass h-16 flex items-center justify-between px-4 sm:px-8 border-b md:hidden">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg flex items-center justify-center font-black text-white" style="background:var(--accent)">T</div>
+                <span class="font-bold text-lg uppercase">TunnelPro</span>
+            </div>
+            <button onclick="openAuthModal()" class="btn btn-primary px-4 py-1 text-xs">Login</button>
+        </nav>
+
+        <!-- Chat Area -->
+        <section id="view-home" class="view flex flex-col h-full">
+            <header class="h-16 flex justify-between items-center px-6 border-b border-white/5 bg-white/[0.02] backdrop-blur-md">
+                <div class="flex items-center gap-3">
+                    <div id="chat-header-icon" class="w-8 h-8 rounded-lg flex items-center justify-center text-white/50 text-sm border border-white/10">#</div>
+                    <div>
+                        <h2 id="active-room-display" class="font-black text-sm uppercase tracking-wider">general</h2>
+                        <div class="flex items-center gap-2">
+                            <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                            <span id="room-status" class="text-[10px] font-bold text-muted uppercase">Global Cluster Chat</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="relative hidden sm:block">
+                        <i class="fas fa-search text-muted absolute left-3 top-1/2 -translate-y-1/2 text-xs"></i>
+                        <input id="search" class="bg-white/5 border border-white/10 rounded-full pl-9 pr-4 py-1.5 text-xs outline-none focus:border-blue-500/50" placeholder="Search archive...">
+                    </div>
+                    <button id="clear-chat" class="p-2 text-muted hover:text-red-500 transition-colors"><i class="fas fa-trash-alt"></i></button>
+                </div>
+            </header>
+
+            <div id="messages" class="flex-grow overflow-y-auto p-6 space-y-4 chat-wallpaper custom-scrollbar"></div>
+
+            <div id="typing-indicator" class="px-6 py-1 text-[10px] font-black uppercase text-blue-400 opacity-0 transition-opacity">Someone is typing...</div>
+            
+            <footer class="p-4 border-t border-white/5">
+                <form id="form" class="max-w-4xl mx-auto flex gap-3">
+                    <button type="button" onclick="document.getElementById('file-input').click()" class="w-12 h-12 flex items-center justify-center rounded-2xl bg-white/5 border border-white/10 text-muted hover:text-white transition-colors"><i class="fas fa-plus"></i></button>
+                    <input type="file" id="file-input" class="hidden" onchange="uploadFile(this)">
+                    <input id="input" autocomplete="off" class="flex-grow bg-white/5 border border-white/10 rounded-2xl px-6 outline-none focus:border-blue-500/50" placeholder="Type a message to #general...">
+                    <button class="w-12 h-12 flex items-center justify-center rounded-2xl bg-blue-600 shadow-lg shadow-blue-600/30 text-white"><i class="fas fa-paper-plane"></i></button>
+                </form>
+            </footer>
         </section>
 
         <section id="view-arch" class="view hidden p-10 max-w-4xl mx-auto min-h-full flex flex-col justify-center">
@@ -141,15 +186,15 @@
             <div class="panel p-8 sm:p-10 rounded-[2.5rem] shadow-2xl">
                 <h3 class="text-2xl font-black mb-6 tracking-tight"><i class="fas fa-palette mr-3" style="color:var(--accent)"></i>Appearance & Themes</h3>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <button onclick="applyTheme('dark')" class="p-6 rounded-3xl text-left transition-transform hover:scale-105 shadow-md flex flex-col justify-between" style="background:#020617; border: 1px solid rgba(255,255,255,0.1); color:#e2e8f0; min-h-[140px]">
+                    <button onclick="applyTheme('dark')" class="p-6 rounded-3xl text-left transition-transform hover:scale-105 shadow-md flex flex-col justify-between" style="background:#020617; border: 1px solid rgba(255,255,255,0.1); color:#e2e8f0; min-height: 140px;">
                         <div><h4 class="font-bold text-lg">Dark Mode</h4><p class="text-xs opacity-70 mt-2">Deep and high contrast. (Default)</p></div>
                         <i class="fas fa-moon mt-4 opacity-50"></i>
                     </button>
-                    <button onclick="applyTheme('light')" class="p-6 rounded-3xl text-left transition-transform hover:scale-105 shadow-md flex flex-col justify-between" style="background:#f8fafc; border: 1px solid rgba(0,0,0,0.1); color:#0f172a; min-h-[140px]">
+                    <button onclick="applyTheme('light')" class="p-6 rounded-3xl text-left transition-transform hover:scale-105 shadow-md flex flex-col justify-between" style="background:#f8fafc; border: 1px solid rgba(0,0,0,0.1); color:#0f172a; min-height: 140px;">
                         <div><h4 class="font-bold text-lg">Light Mode</h4><p class="text-xs opacity-70 mt-2">Clean and bright for daylight.</p></div>
                         <i class="fas fa-sun mt-4 opacity-50"></i>
                     </button>
-                    <button onclick="applyTheme('solar')" class="p-6 rounded-3xl text-left transition-transform hover:scale-105 shadow-md flex flex-col justify-between" style="background:#002b36; border: 1px solid rgba(42,161,152,0.2); color:#839496; min-h-[140px]">
+                    <button onclick="applyTheme('solar')" class="p-6 rounded-3xl text-left transition-transform hover:scale-105 shadow-md flex flex-col justify-between" style="background:#002b36; border: 1px solid rgba(42,161,152,0.2); color:#839496; min-height: 140px;">
                         <div><h4 class="font-bold text-lg" style="color:#b58900">Solarized</h4><p class="text-xs opacity-70 mt-2">Easy on the eyes, terminal inspired.</p></div>
                         <i class="fas fa-terminal mt-4 opacity-50" style="color:#b58900"></i>
                     </button>
@@ -181,52 +226,24 @@
                         <div class="text-xl font-bold text-emerald-500">1</div>
                     </div>
                 </div>
-                <div class="mt-8 panel p-6 rounded-3xl border">
-                    <h4 class="text-xs font-black uppercase text-muted mb-4">Infrastructure Status</h4>
-                    <div class="space-y-3">
-                        <div class="flex justify-between text-sm"><span>PostgreSQL Cluster</span> <span class="text-emerald-500 font-bold">HEALTHY</span></div>
-                        <div class="flex justify-between text-sm"><span>Redis Adapter</span> <span class="text-emerald-500 font-bold">CONNECTED</span></div>
-                        <div class="flex justify-between text-sm"><span>WebSocket Gateway</span> <span class="text-emerald-500 font-bold">ACTIVE</span></div>
+                <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div class="panel p-6 rounded-3xl border">
+                        <h4 class="text-xs font-black uppercase text-muted mb-4">Infrastructure Status</h4>
+                        <div class="space-y-3">
+                            <div class="flex justify-between text-sm"><span>PostgreSQL Cluster</span> <span class="text-emerald-500 font-bold">HEALTHY</span></div>
+                            <div class="flex justify-between text-sm"><span>Redis Adapter</span> <span class="text-emerald-500 font-bold">CONNECTED</span></div>
+                            <div class="flex justify-between text-sm"><span>WebSocket Gateway</span> <span class="text-emerald-500 font-bold">ACTIVE</span></div>
+                        </div>
+                    </div>
+                    <div class="panel p-6 rounded-3xl border flex flex-col items-center justify-center bg-blue-900/10">
+                        <div class="cluster-node mb-4"></div>
+                        <div class="text-[10px] font-black uppercase text-blue-400">Master Node Heartbeat</div>
                     </div>
                 </div>
             </div>
         </section>
-    </main>
-
-    <div id="chat-section" class="hidden fixed inset-0 z-[60] flex flex-col h-full" style="background:var(--bg-main)">
-        <header class="p-4 glass flex justify-between items-center shadow-lg border-b border-x-0 border-t-0">
-            <button id="clear-chat" class="text-muted hover:text-red-500 p-2 transition-colors"><i class="fas fa-trash-alt"></i></button>
-            <div class="flex items-center gap-3">
-                <div id="current-avatar" class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-white shadow-md shadow-blue-500/20" style="background:var(--accent)">?</div>
-                <div>
-                    <h1 class="font-bold text-lg text-center leading-tight" style="color:var(--text-main)" id="current-display-name">Username</h1>
-                    <p id="typing-indicator" class="text-[10px] font-black uppercase opacity-0 transition-opacity" style="color:var(--accent)">Typing...</p>
-                </div>
-            </div>
-            <button onclick="closeChat()" class="text-muted hover:text-red-500 p-2 transition-colors"><i class="fas fa-times text-xl"></i></button>
-        </header>
-
-        <div class="p-3 panel border-x-0 border-t-0 border-b">
-            <div class="max-w-5xl mx-auto flex items-center gap-3">
-                <div class="flex-grow relative">
-                    <i class="fas fa-magnifying-glass text-muted absolute left-3 top-1/2 -translate-y-1/2 text-xs"></i>
-                    <input id="search" class="w-full input pl-9 text-sm" placeholder="Search messages… (Ctrl+K)">
-                </div>
-                <button id="jump-bottom" class="btn btn-ghost px-3 py-2 text-muted" title="Jump to latest"><i class="fas fa-arrow-down"></i></button>
-            </div>
-        </div>
-        
-        <main id="messages" class="flex-grow p-6 space-y-4 overflow-y-auto chat-wallpaper custom-scrollbar"></main>
-        
-        <footer class="p-4 glass border-t border-x-0 border-b-0">
-            <form id="form" class="max-w-5xl mx-auto flex gap-3">
-                <button type="button" onclick="document.getElementById('file-input').click()" class="btn btn-ghost px-4 text-muted" title="Upload File"><i class="fas fa-paperclip"></i></button>
-                <input type="file" id="file-input" class="hidden" onchange="uploadFile(this)">
-                <input id="input" autocomplete="off" class="flex-grow input" placeholder="Send message…">
-                <button id="send-btn" class="btn btn-primary w-14 text-white rounded-[16px]" title="Send"><i class="fas fa-paper-plane"></i></button>
-            </form>
-        </footer>
     </div>
+
 
     <!-- Auth Modal -->
     <div id="auth-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -250,7 +267,10 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        const socket = io();
+        const socket = io({ autoConnect: false });
+        let onlineUserIds = new Set();
+        let allUsers = [];
+        let currentRoom = 'global';
         
         const themes = {
             dark: { wallpaper: 'https://w0.peakpx.com/wallpaper/508/606/HD-wallpaper-whatsapp-dark-background-whatsapp-dark-mode.jpg' },
@@ -289,7 +309,6 @@
         let currentUser = null;
         let authUser = JSON.parse(localStorage.getItem('tunnel_auth_user') || 'null');
         let authToken = localStorage.getItem('tunnel_auth_token') || null;
-        let users = JSON.parse(localStorage.getItem('k8s_private_users') || '[]');
         let typingTimeout;
         let monitoringInterval;
         let authMode = 'login'; 
@@ -325,9 +344,16 @@
                         authUser = data.user;
                         localStorage.setItem('tunnel_auth_token', authToken);
                         localStorage.setItem('tunnel_auth_user', JSON.stringify(authUser));
+                        
+                        // Setup socket with auth before connecting
+                        socket.auth = { token: authToken };
+                        socket.connect();
+                        
                         updateAuthUI();
                         closeAuthModal();
                         toast('Welcome back, ' + authUser.username);
+                        fetchAndRenderUsers();
+                        joinRoom('global');
                     } else {
                         toast('Resource created. Please login.');
                         toggleAuthMode();
@@ -354,10 +380,11 @@
         function logout() {
             localStorage.removeItem('tunnel_auth_token');
             localStorage.removeItem('tunnel_auth_user');
+            socket.disconnect();
             authUser = null; authToken = null;
             updateAuthUI();
-            closeChat();
             toast('Logged out');
+            fetchAndRenderUsers();
         }
 
         // --- FILE UPLOAD LOGIC ---
@@ -372,11 +399,12 @@
                     const text = data.url.match(/\.(jpeg|jpg|gif|png|webp)$/i) 
                         ? data.url 
                         : `📁 Attachment: [${data.name}](${data.url})`;
-                    socket.emit('chat message', {
-                        user: currentUser,
+                    socket.emit('chat message', { 
+                        user: currentUser || 'Guest', 
                         userId: authUser ? authUser.id : null,
                         text: text,
-                        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                        room: currentRoom
                     });
                 }
             } catch (err) { toast('Upload failed'); }
@@ -452,13 +480,9 @@
             const viewEl = document.getElementById('view-' + viewId);
             if(viewEl) viewEl.classList.remove('hidden');
 
-            ['home', 'arch', 'tech', 'about', 'themes', 'monitor'].forEach(id => {
-                const el = document.getElementById('nav-' + id);
-                if (el) {
-                    el.classList.toggle('text-muted', id !== viewId);
-                    el.style.color = (id === viewId) ? 'var(--text-main)' : '';
-                }
-            });
+            document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+            const sideEl = document.getElementById('nav-' + viewId);
+            if (sideEl) sideEl.classList.add('active');
 
             if (viewId === 'monitor') {
                 fetchStats();
@@ -470,8 +494,6 @@
 
         function login(name) {
             currentUser = name;
-            document.getElementById('chat-section').classList.remove('hidden');
-            document.getElementById('current-display-name').innerText = name;
             document.getElementById('current-avatar').innerText = name[0].toUpperCase();
             document.getElementById('input').focus();
             toast(`Signed in as ${name}`);
@@ -479,51 +501,62 @@
             filterMessages();
         }
 
-        function closeChat() { document.getElementById('chat-section').classList.add('hidden'); }
+        function joinRoom(room) {
+            currentRoom = room;
+            socket.emit('join room', room);
+            document.getElementById('messages').innerHTML = ''; // Clear for room change
+            offset = 0; // Reset pagination
+            loadMessages();
+            showView('home');
+            
+            // Update UI
+            const isDM = room.startsWith('dm_');
+            const display = isDM ? '@' + room.split('_').slice(1).join(' & ') : room;
+            document.getElementById('active-room-display').innerText = display;
+            document.getElementById('chat-header-icon').innerText = isDM ? '@' : '#';
+            document.getElementById('input').placeholder = `Type a message to ${display}...`;
+            
+            document.querySelectorAll('.sidebar-item').forEach(el => {
+                el.classList.toggle('active', el.textContent.includes(display) || (display === 'general' && el.textContent.includes('general')));
+            });
+        }
+
+        async function fetchAndRenderUsers() {
+            try {
+                const res = await fetch('/users');
+                allUsers = await res.json();
+                renderUsers();
+            } catch (e) {
+                console.error('Failed to fetch users', e);
+            }
+        }
 
         function renderUsers() {
-            const list = document.getElementById('user-list');
-            document.getElementById('add-user-container').style.display = users.length >= 2 ? 'none' : 'flex';
-            list.innerHTML = users.map(u => `
-                <div class="flex items-center justify-between panel p-5 rounded-3xl border hover:border-blue-500 cursor-pointer shadow-sm transition-colors" data-username="${u.replace(/"/g, '&quot;')}">
-                    <div class="flex items-center gap-4">
-                        <div class="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white shadow-md shadow-blue-500/20" style="background:var(--accent)">${u[0].toUpperCase()}</div>
-                        <span class="font-bold" style="color:var(--text-main)">${u}</span>
+            const list = document.getElementById('sidebar-users');
+            if (!list) return;
+            const otherUsers = allUsers.filter(u => u.username !== currentUser);
+            list.innerHTML = otherUsers.map(u => {
+                const isOnline = onlineUserIds.has(u.id);
+                const room = getDMId(authUser ? authUser.id : 0, u.id);
+                return `
+                <div class="sidebar-item" onclick="joinRoom('${room}')">
+                    <div class="relative">
+                        <div class="w-2 h-2 rounded-full ${isOnline ? 'online-dot' : 'offline-dot'}"></div>
                     </div>
-                    <button class="text-muted hover:text-red-500 delete-user-btn" data-username="${u.replace(/"/g, '&quot;')}"><i class="fas fa-trash-alt"></i></button>
-                </div>`
-            ).join('');
-            
-            list.querySelectorAll('.flex.items-center.justify-between').forEach(div => {
-                div.addEventListener('click', () => login(div.dataset.username));
-            });
-            list.querySelectorAll('.delete-user-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    deleteUser(btn.dataset.username);
-                });
-            });
+                    <span class="truncate">${u.username}</span>
+                </div>`;
+            }).join('');
         }
 
-        function addUser() {
-            const inputEl = document.getElementById('new-username');
-            const name = inputEl.value.trim();
-            if (!name) return toast('Enter a profile name');
-            if (users.length >= 2) return toast('Only 2 profiles allowed');
-            users.push(name);
-            localStorage.setItem('k8s_private_users', JSON.stringify(users));
-            inputEl.value = '';
-            renderUsers();
-            toast('Profile added');
+        function getDMId(id1, id2) {
+            return `dm_${Math.min(id1, id2)}_${Math.max(id1, id2)}`;
         }
-
-        function deleteUser(name) { users = users.filter(u => u !== name); localStorage.setItem('k8s_private_users', JSON.stringify(users)); renderUsers(); }
 
         const inputDom = document.getElementById('input');
         inputDom.addEventListener('input', () => {
-            socket.emit('typing', { user: currentUser, isTyping: true });
+            socket.emit('typing', { user: currentUser, isTyping: true, room: currentRoom });
             clearTimeout(typingTimeout);
-            typingTimeout = setTimeout(() => socket.emit('typing', { user: currentUser, isTyping: false }), 2000);
+            typingTimeout = setTimeout(() => socket.emit('typing', { user: currentUser, isTyping: false, room: currentRoom }), 2000);
         });
 
         document.getElementById('form').addEventListener('submit', (e) => {
@@ -533,16 +566,21 @@
                     user: currentUser || 'Guest', 
                     userId: authUser ? authUser.id : null,
                     text: inputDom.value, 
-                    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+                    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    room: currentRoom
                 });
                 inputDom.value = '';
-                socket.emit('typing', { user: currentUser, isTyping: false });
+                socket.emit('typing', { user: currentUser, isTyping: false, room: currentRoom });
             }
         });
 
         function deleteMessage(msgId) { socket.emit('delete message', msgId); }
 
-        socket.on('typing', (data) => { if (data.user !== currentUser) document.getElementById('typing-indicator').style.opacity = data.isTyping ? '1' : '0'; });
+        socket.on('typing', (data) => { 
+            if (data.user !== currentUser && data.room === currentRoom) {
+                document.getElementById('typing-indicator').style.opacity = data.isTyping ? '1' : '0';
+            }
+        });
 
         socket.on('delete message', (msgId) => {
             const el = document.getElementById('msg-' + msgId);
@@ -550,6 +588,7 @@
         });
 
         socket.on('chat message', (data) => {
+            if (data.room !== currentRoom) return; // Ignore if message is for another room
             const messages = document.getElementById('messages');
             const isMe = data.sender === currentUser;
             const msgEl = document.createElement('div');
@@ -622,7 +661,7 @@
             if (fetching) return;
             fetching = true;
             try {
-                const res = await fetch(`/messages?limit=${limit}&offset=${offset}`);
+                const res = await fetch(`/messages?limit=${limit}&offset=${offset}&room=${currentRoom}`);
                 const data = await res.json();
                 if (data.length === 0) {
                     fetching = false;
@@ -740,12 +779,34 @@
             updateMessageCount();
         });
 
+        // --- PRESENCE HANDLERS ---
+        socket.on('online:list', (ids) => {
+            onlineUserIds = new Set(ids);
+            renderUsers();
+        });
+
+        socket.on('user:online', (data) => {
+            onlineUserIds.add(data.userId);
+            renderUsers();
+            toast(`${data.username} is online`);
+        });
+
+        socket.on('user:offline', (data) => {
+            onlineUserIds.delete(data.userId);
+            renderUsers();
+        });
+
+        socket.on('connect_error', (err) => {
+            toast(err.message);
+            if (err.message.includes('Authentication')) {
+                logout();
+            }
+        });
+
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') closeChat();
             if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
                 e.preventDefault();
-                const chatOpen = !document.getElementById('chat-section').classList.contains('hidden');
-                if (chatOpen) document.getElementById('search').focus();
+                document.getElementById('search').focus();
             }
         });
 
@@ -753,9 +814,17 @@
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
         });
 
-        renderUsers();
-        showView('home');
+        // Initialize session on load
+        if (authToken && authUser) {
+            updateAuthUI();
+            socket.auth = { token: authToken };
+            socket.connect();
+            joinRoom('global');
+        }
+
         updateAuthUI();
+        fetchAndRenderUsers();
+        showView('home');
         
         document.getElementById('clear-chat').addEventListener('click', () => {
             if (confirm('Clear all messages?')) {
