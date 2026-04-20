@@ -20,16 +20,16 @@ help:
 	@echo "  k8s-proxy    - Port-forward to the chat service (port 3000)"
 
 install:
-	cd app && npm install
+	cd backend && npm install
 
 run:
-	cd app && node server.js
+	cd backend && node server.js
 
 db-init:
 	psql $(DB_NAME) < $(K8S_DIR)/init.sql
 
 docker-build:
-	cd app && docker build -t $(APP_IMAGE) .
+	cd backend && docker build -t $(APP_IMAGE) .
 
 k8s-deploy:
 	kubectl apply -f $(K8S_DIR)/
