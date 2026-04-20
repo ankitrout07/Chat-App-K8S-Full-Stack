@@ -13,13 +13,14 @@ const fs = require('fs');
 const JWT_SECRET = process.env.JWT_SECRET || 'tunnel-pro-secret-key-1337';
 const app = express();
 app.use(express.json());
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use(express.static(path.join(__dirname, 'app')));
+app.use('/uploads', express.static(path.join(__dirname, 'app', 'uploads')));
 
 // Ensure uploads directory exists
-if (!fs.existsSync('./uploads')) fs.mkdirSync('./uploads');
+if (!fs.existsSync('./app/uploads')) fs.mkdirSync('./app/uploads', { recursive: true });
 
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, './uploads'),
+  destination: (req, file, cb) => cb(null, './app/uploads'),
   filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname)
 });
 const upload = multer({ storage });
@@ -63,7 +64,9 @@ async function initializeRedis() {
   }
 }
 
-app.get('/', (req, res) => res.sendFile(__dirname + '/index.html'));
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'app', 'index.html'));
+});
 
 // --- AUTH ROUTES ---
 app.post('/register', async (req, res) => {

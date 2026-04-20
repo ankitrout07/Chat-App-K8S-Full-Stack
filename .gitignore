@@ -27,8 +27,8 @@ build/
 out/
 
 # Uploads and local files
-app/uploads/*
-!app/uploads/.gitkeep
+backend/app/uploads/*
+!backend/app/uploads/.gitkeep
 
 # Logs
 logs/
