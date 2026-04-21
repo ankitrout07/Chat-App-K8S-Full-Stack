@@ -67,7 +67,9 @@ jobs:
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
-          allow-no-subscriptions: false
+
+      - name: Set Subscription Context
+        run: az account set --subscription "7ef42162-83d2-4247-8010-38bf34dd1453"
 
       - name: 'Deploy to Azure Web App'
         id: deploy-to-webapp
