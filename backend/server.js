@@ -48,7 +48,7 @@ function createDbClient() {
 async function initializeDB(retries = 5) {
   while (retries > 0) {
     try {
-      db = createDbClient(); // Create a fresh client for each attempt
+      db = createDbClient();
       await db.connect();
       console.log('✅ Database connected');
       return;
@@ -56,12 +56,46 @@ async function initializeDB(retries = 5) {
       retries -= 1;
       console.error(`❌ DB Connection Failed (${retries} retries left):`, err.message);
       if (retries === 0) {
-        process.exit(1);
+        console.warn('⚠️ ALL DB RETRIES FAILED. Switching to IN-MEMORY VOLATILE MODE for demo purposes.');
+        setupMemoryFallback();
+        return;
       }
-      // Wait 5 seconds before retrying
       await new Promise(res => setTimeout(res, 5000));
     }
   }
+}
+
+// Fallback logic for when no DB is available (Demo Mode)
+function setupMemoryFallback() {
+  console.log('🛡️ Memory Fallback Active: Chat will work but data will NOT persist.');
+  // Mock the db.query method to use in-memory arrays
+  const memoryStore = { users: [], messages: [], reactions: [] };
+  db = {
+    query: async (text, params) => {
+      console.log('☁️ Memory DB Query:', text);
+      if (text.includes('INSERT INTO users')) {
+        const user = { id: Date.now(), username: params[0], password_hash: params[1] };
+        memoryStore.users.push(user);
+        return { rows: [user] };
+      }
+      if (text.includes('SELECT * FROM users WHERE username')) {
+        const user = memoryStore.users.find(u => u.username === params[0]);
+        return { rows: user ? [user] : [] };
+      }
+      if (text.includes('SELECT id, username FROM users')) {
+        return { rows: memoryStore.users };
+      }
+      if (text.includes('INSERT INTO messages')) {
+        const msg = { id: Date.now(), user_id: params[0], sender: params[1], text: params[2], time: params[3], room: params[4], created_at: new Date() };
+        memoryStore.messages.push(msg);
+        return { rows: [msg] };
+      }
+      if (text.includes('SELECT m.id')) {
+        return { rows: memoryStore.messages.filter(m => m.room === params[0]).reverse().slice(params[2], params[2] + params[1]) };
+      }
+      return { rows: [] };
+    }
+  };
 }
 
 // Setup Redis adapter for Socket.IO clustering
