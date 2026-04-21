@@ -31,18 +31,24 @@ const upload = multer({ storage });
 const server = http.createServer(app);
 const io = new Server(server);
 
-const db = new Client({
-  host: process.env.DB_HOST || 'db-service',
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.POSTGRES_PASSWORD,
-  database: process.env.DB_NAME || 'postgres',
-  port: 5432,
-});
+let db;
+
+// Function to create a fresh DB client
+function createDbClient() {
+  return new Client({
+    host: process.env.DB_HOST || 'db-service',
+    user: process.env.DB_USER || 'postgres',
+    password: process.env.POSTGRES_PASSWORD,
+    database: process.env.DB_NAME || 'postgres',
+    port: 5432,
+  });
+}
 
 // Properly initialize database connection with retries
 async function initializeDB(retries = 5) {
   while (retries > 0) {
     try {
+      db = createDbClient(); // Create a fresh client for each attempt
       await db.connect();
       console.log('✅ Database connected');
       return;
