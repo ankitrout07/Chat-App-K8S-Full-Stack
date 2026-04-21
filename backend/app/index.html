@@ -5,123 +5,132 @@
     <style>
         :root { 
             --bg-main: #0a0f1e; 
-            --panel: rgba(16, 24, 39, 0.7); 
-            --border: rgba(255, 255, 255, 0.05);
+            --panel: rgba(15, 23, 42, 0.75); 
+            --border: rgba(255, 255, 255, 0.08);
             --text-main: #f1f5f9; 
             --text-muted: #94a3b8;
             --accent: #6366f1; 
             --accent-glow: rgba(99, 102, 241, 0.3);
             --bubble-me: #6366f1; 
-            --bubble-them: rgba(30, 41, 59, 0.8); 
+            --bubble-them: rgba(30, 41, 59, 0.7); 
         }
 
-        * { font-family: 'Inter', sans-serif; }
+        * { font-family: 'Inter', sans-serif; box-sizing: border-box; }
         h1, h2, h3, .font-heading { font-family: 'Outfit', sans-serif; }
 
         body { 
-            background: radial-gradient(circle at top right, #1e1b4b, #0a0f1e, #020617);
+            background: var(--bg-main);
             color: var(--text-main); 
-            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
             height: 100vh;
+            margin: 0;
+            display: flex;
             overflow: hidden;
+            transition: background 0.3s ease;
         }
 
         /* Premium Glassmorphism */
         .glass-panel {
-            background: var(--panel);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--border);
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            background: var(--panel) !important;
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border-bottom: 1px solid var(--border);
         }
 
         .sidebar {
-            background: rgba(15, 23, 42, 0.9);
+            width: 280px;
+            background: rgba(7, 10, 20, 0.95);
             border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            z-index: 50;
         }
 
         .sidebar-item {
+            padding: 12px 20px;
+            margin: 4px 12px;
+            border-radius: 14px;
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
-            overflow: hidden;
         }
 
-        .sidebar-item::before {
-            content: '';
-            position: absolute;
-            left: 0; top: 0; width: 0; height: 100%;
-            background: var(--accent);
-            opacity: 0.1;
-            transition: width 0.3s ease;
+        .sidebar-item:hover {
+            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.05);
         }
 
-        .sidebar-item:hover::before { width: 100%; }
-        .sidebar-item.active { background: var(--accent); color: white; box-shadow: 0 4px 15px var(--accent-glow); }
-
-        /* Animated Message Entry */
-        @keyframes slideUpFade {
-            from { opacity: 0; transform: translateY(20px) scale(0.98); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
+        .sidebar-item.active {
+            background: var(--accent) !important;
+            color: #ffffff !important;
+            box-shadow: 0 4px 20px var(--accent-glow);
         }
 
+        .sidebar-label {
+            padding: 24px 24px 8px;
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            letter-spacing: 0.15em;
+            opacity: 0.5;
+        }
+
+        /* Message Styling */
         .message-anim {
             animation: slideUpFade 0.4s cubic-bezier(0.23, 1, 0.32, 1) forwards;
         }
 
-        /* Custom Scrollbar */
-        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
+        @keyframes slideUpFade {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
-
-        /* Pulsing Glow */
-        .glow-accent {
-            box-shadow: 0 0 15px var(--accent-glow);
-        }
-
-        .chat-input-container {
-            background: rgba(15, 23, 42, 0.8);
-            backdrop-filter: blur(10px);
-            border: 1px solid var(--border);
-            border-radius: 24px;
-        }
 
         .btn-premium {
-            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            background: linear-gradient(135deg, var(--accent), #4f46e5);
             transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
         }
 
         .btn-premium:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(99, 102, 241, 0.5);
+            transform: translateY(-1px);
+            filter: brightness(1.1);
         }
     </style>
 </head>
-<body class="selection:bg-indigo-500/30 flex">
+<body class="selection:bg-indigo-500/30">
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
     <!-- Sidebar Navigation -->
     <aside class="sidebar hidden md:flex">
-        <div class="h-16 flex items-center px-6 gap-3 border-b border-white/5">
-            <div class="w-8 h-8 rounded-lg flex items-center justify-center font-black uppercase text-white shadow-lg shadow-blue-500/20" style="background:var(--accent)">T</div>
-            <span class="font-bold text-lg tracking-tighter uppercase">Tunnel<span style="color:var(--accent)">Pro</span></span>
+        <div class="h-20 flex items-center px-6 gap-3 border-b border-white/5">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center font-black text-white shadow-lg" style="background:var(--accent)">T</div>
+            <span class="font-bold text-xl tracking-tight uppercase">Tunnel<span class="text-indigo-400">Pro</span></span>
         </div>
         
-        <div class="flex-grow overflow-y-auto custom-scrollbar pt-4">
+        <div class="flex-grow overflow-y-auto custom-scrollbar pt-2">
             <div class="sidebar-label">Global Channels</div>
-            <div class="sidebar-item active" onclick="joinRoom('global')"><i class="fas fa-hashtag"></i> general</div>
-            <div class="sidebar-item" onclick="joinRoom('#dev-ops')"><i class="fas fa-hashtag"></i> dev-ops</div>
-            <div class="sidebar-item" onclick="joinRoom('#k8s-logs')"><i class="fas fa-hashtag"></i> k8s-logs</div>
+            <div class="sidebar-item active" onclick="joinRoom('global')"><i class="fas fa-hashtag text-[10px]"></i> general</div>
+            <div class="sidebar-item" onclick="joinRoom('#dev-ops')"><i class="fas fa-hashtag text-[10px]"></i> dev-ops</div>
+            <div class="sidebar-item" onclick="joinRoom('#k8s-logs')"><i class="fas fa-hashtag text-[10px]"></i> k8s-logs</div>
 
             <div class="sidebar-label">Direct Messages</div>
             <div id="sidebar-users" class="space-y-1"></div>
 
             <div class="sidebar-label">Infrastructure</div>
-            <div id="nav-monitor" class="sidebar-item" onclick="showView('monitor')"><i class="fas fa-gauge-high"></i> Monitoring</div>
-            <div id="nav-arch" class="sidebar-item" onclick="showView('arch')"><i class="fas fa-server"></i> Architecture</div>
-            <div id="nav-themes" class="sidebar-item" onclick="showView('themes')"><i class="fas fa-palette"></i> Appearance</div>
+            <div id="nav-monitor" class="sidebar-item" onclick="showView('monitor')"><i class="fas fa-chart-line text-[10px]"></i> Monitoring</div>
+            <div id="nav-arch" class="sidebar-item" onclick="showView('arch')"><i class="fas fa-network-wired text-[10px]"></i> Architecture</div>
+            <div id="nav-themes" class="sidebar-item" onclick="showView('themes')"><i class="fas fa-swatchbook text-[10px]"></i> Appearance</div>
         </div>
 
         <div class="p-4 border-t border-white/5">
@@ -147,23 +156,23 @@
 
         <!-- Chat Area -->
         <section id="view-home" class="view flex flex-col h-full relative">
-            <header class="h-20 flex justify-between items-center px-8 glass-panel border-0 border-b z-10">
+            <header class="h-20 flex justify-between items-center px-8 glass-panel border-b border-white/5 z-10 sticky top-0">
                 <div class="flex items-center gap-4">
                     <div id="chat-header-icon" class="w-10 h-10 rounded-2xl flex items-center justify-center bg-white/5 text-indigo-400 border border-white/10 font-bold">#</div>
                     <div>
-                        <h2 id="active-room-display" class="font-black text-lg uppercase tracking-tight">general</h2>
+                        <h2 id="active-room-display" class="font-black text-xl uppercase tracking-tighter">general</h2>
                         <div class="flex items-center gap-2">
-                            <span class="w-2 h-2 bg-emerald-500 rounded-full glow-accent"></span>
-                            <span id="room-status" class="text-[10px] font-bold text-muted uppercase tracking-widest">Secure Quantum Tunnel</span>
+                            <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
+                            <span id="room-status" class="text-[10px] font-bold text-muted uppercase tracking-[0.2em] opacity-60">Secure Quantum Tunnel</span>
                         </div>
                     </div>
                 </div>
                 <div class="flex items-center gap-4">
                     <div class="relative hidden sm:block">
-                        <i class="fas fa-search text-muted absolute left-4 top-1/2 -translate-y-1/2 text-xs"></i>
-                        <input id="search" class="bg-white/5 border border-white/10 rounded-full pl-10 pr-4 py-2 text-xs outline-none focus:border-indigo-500/50 transition-all w-64" placeholder="Search archive...">
+                        <i class="fas fa-search text-muted absolute left-4 top-1/2 -translate-y-1/2 text-[10px] opacity-40"></i>
+                        <input id="search" class="bg-white/5 border border-white/10 rounded-full pl-10 pr-4 py-2 text-xs outline-none focus:border-indigo-500/50 transition-all w-64 placeholder:text-muted placeholder:opacity-30" placeholder="Search archive...">
                     </div>
-                    <button id="clear-chat" class="w-10 h-10 flex items-center justify-center rounded-xl text-muted hover:text-red-400 hover:bg-red-500/10 transition-all"><i class="fas fa-trash-alt"></i></button>
+                    <button id="clear-chat" class="w-10 h-10 flex items-center justify-center rounded-xl text-muted hover:text-red-400 hover:bg-red-500/10 transition-all"><i class="fas fa-trash-alt text-xs"></i></button>
                 </div>
             </header>
 
@@ -217,17 +226,35 @@
             <div class="panel p-8 sm:p-10 rounded-[2.5rem] shadow-2xl">
                 <h3 class="text-2xl font-black mb-6 tracking-tight"><i class="fas fa-palette mr-3" style="color:var(--accent)"></i>Appearance & Themes</h3>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <button onclick="applyTheme('dark')" class="p-6 rounded-3xl text-left transition-transform hover:scale-105 shadow-md flex flex-col justify-between" style="background:#020617; border: 1px solid rgba(255,255,255,0.1); color:#e2e8f0; min-height: 140px;">
-                        <div><h4 class="font-bold text-lg">Dark Mode</h4><p class="text-xs opacity-70 mt-2">Deep and high contrast. (Default)</p></div>
-                        <i class="fas fa-moon mt-4 opacity-50"></i>
+                    <button onclick="applyTheme('dark')" class="p-8 rounded-[2rem] text-left transition-all hover:scale-[1.02] active:scale-[0.98] shadow-xl flex flex-col justify-between group" style="background:#0a0f1e; border: 1px solid rgba(255,255,255,0.1); color:#ffffff; min-height: 180px;">
+                        <div>
+                            <h4 class="font-black text-xl tracking-tight">Quantum Dark</h4>
+                            <p class="text-[10px] uppercase font-bold tracking-widest opacity-40 mt-2 text-indigo-400">Deep Space Protocol</p>
+                        </div>
+                        <div class="flex justify-between items-center mt-4">
+                            <i class="fas fa-moon text-2xl opacity-20 group-hover:opacity-100 transition-opacity"></i>
+                            <span class="text-[10px] font-black uppercase opacity-0 group-hover:opacity-100 transition-opacity">Select</span>
+                        </div>
                     </button>
-                    <button onclick="applyTheme('light')" class="p-6 rounded-3xl text-left transition-transform hover:scale-105 shadow-md flex flex-col justify-between" style="background:#f8fafc; border: 1px solid rgba(0,0,0,0.1); color:#0f172a; min-height: 140px;">
-                        <div><h4 class="font-bold text-lg">Light Mode</h4><p class="text-xs opacity-70 mt-2">Clean and bright for daylight.</p></div>
-                        <i class="fas fa-sun mt-4 opacity-50"></i>
+                    <button onclick="applyTheme('light')" class="p-8 rounded-[2rem] text-left transition-all hover:scale-[1.02] active:scale-[0.98] shadow-xl flex flex-col justify-between group" style="background:#f8fafc; border: 1px solid rgba(0,0,0,0.1); color:#0f172a; min-height: 180px;">
+                        <div>
+                            <h4 class="font-black text-xl tracking-tight">Daylight Poly</h4>
+                            <p class="text-[10px] uppercase font-bold tracking-widest opacity-40 mt-2 text-indigo-600">High Visibility</p>
+                        </div>
+                        <div class="flex justify-between items-center mt-4">
+                            <i class="fas fa-sun text-2xl opacity-20 group-hover:opacity-100 transition-opacity"></i>
+                            <span class="text-[10px] font-black uppercase opacity-0 group-hover:opacity-100 transition-opacity">Select</span>
+                        </div>
                     </button>
-                    <button onclick="applyTheme('solar')" class="p-6 rounded-3xl text-left transition-transform hover:scale-105 shadow-md flex flex-col justify-between" style="background:#002b36; border: 1px solid rgba(42,161,152,0.2); color:#839496; min-height: 140px;">
-                        <div><h4 class="font-bold text-lg" style="color:#b58900">Solarized</h4><p class="text-xs opacity-70 mt-2">Easy on the eyes, terminal inspired.</p></div>
-                        <i class="fas fa-terminal mt-4 opacity-50" style="color:#b58900"></i>
+                    <button onclick="applyTheme('solar')" class="p-8 rounded-[2rem] text-left transition-all hover:scale-[1.02] active:scale-[0.98] shadow-xl flex flex-col justify-between group" style="background:#002b36; border: 1px solid rgba(42,161,152,0.2); color:#839496; min-height: 180px;">
+                        <div>
+                            <h4 class="font-black text-xl tracking-tight" style="color:#b58900">Solar Terminal</h4>
+                            <p class="text-[10px] uppercase font-bold tracking-widest opacity-40 mt-2 text-emerald-500">Retro Grade</p>
+                        </div>
+                        <div class="flex justify-between items-center mt-4">
+                            <i class="fas fa-terminal text-2xl opacity-20 group-hover:opacity-100 transition-opacity"></i>
+                            <span class="text-[10px] font-black uppercase opacity-0 group-hover:opacity-100 transition-opacity">Select</span>
+                        </div>
                     </button>
                 </div>
             </div>
