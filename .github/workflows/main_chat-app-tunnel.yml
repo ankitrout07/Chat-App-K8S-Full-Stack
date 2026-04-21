@@ -10,6 +10,7 @@ on:
   workflow_dispatch:
 
 env:
+  NODE_ENV: "production"
   DB_HOST: "db-service"
   DB_NAME: "postgres"
   DB_USER: "postgres"

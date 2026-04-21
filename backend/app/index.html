@@ -1,73 +1,104 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>K8S Chat Pro | v14 Control</title>
+    <title>TunnelPro | Quantum Chat</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root { 
-            --bg-main: #020617; --panel: rgba(15, 23, 42, 0.5); --border: rgba(255,255,255,0.08);
-            --text-main: #e2e8f0; --text-muted: #94a3b8;
-            --accent: #2563eb; --bubble-me: #2563eb; --bubble-them: #1e293b; 
+            --bg-main: #0a0f1e; 
+            --panel: rgba(16, 24, 39, 0.7); 
+            --border: rgba(255, 255, 255, 0.05);
+            --text-main: #f1f5f9; 
+            --text-muted: #94a3b8;
+            --accent: #6366f1; 
+            --accent-glow: rgba(99, 102, 241, 0.3);
+            --bubble-me: #6366f1; 
+            --bubble-them: rgba(30, 41, 59, 0.8); 
         }
-        :root[data-theme="light"] {
-            --bg-main: #f8fafc; --panel: rgba(255, 255, 255, 0.9); --border: rgba(0,0,0,0.1);
-            --text-main: #0f172a; --text-muted: #64748b;
-            --accent: #3b82f6; --bubble-me: #3b82f6; --bubble-them: #ffffff;
+
+        * { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .font-heading { font-family: 'Outfit', sans-serif; }
+
+        body { 
+            background: radial-gradient(circle at top right, #1e1b4b, #0a0f1e, #020617);
+            color: var(--text-main); 
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            height: 100vh;
+            overflow: hidden;
         }
-        :root[data-theme="solar"] {
-            --bg-main: #002b36; --panel: rgba(7, 54, 66, 0.6); --border: rgba(42, 161, 152, 0.2);
-            --text-main: #839496; --text-muted: #586e75;
-            --accent: #b58900; --bubble-me: #b58900; --bubble-them: #073642;
+
+        /* Premium Glassmorphism */
+        .glass-panel {
+            background: var(--panel);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
         }
-        body { background-color: var(--bg-main); color: var(--text-main); transition: all 0.35s ease; }
-        .text-muted { color: var(--text-muted); }
-        .border { border-color: var(--border) !important; }
-        .panel { background-color: var(--panel); border: 1px solid var(--border); }
-        .input { border-radius: 16px; padding: 14px 16px; outline: none; background: var(--bg-main); color: var(--text-main); border: 1px solid var(--border); }
-        .input:focus { border-color: rgba(59, 130, 246, 0.6); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.16); }
-        .kbd { border: 1px solid var(--border); background: var(--bg-main); padding: 2px 6px; border-radius: 8px; font-size: 11px; }
-        .glass { background: var(--panel); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); }
-        .chat-wallpaper { background-size: cover; background-blend-mode: overlay; transition: background-image 0.3s; }
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: var(--bg-main); border-radius: 999px; }
-        .toast { position: fixed; top: 82px; left: 50%; transform: translateX(-50%); z-index: 80; padding: 10px 14px; border-radius: 999px; background: rgba(2, 6, 23, 0.72); border: 1px solid rgba(148, 163, 184, 0.18); backdrop-filter: blur(12px); color: rgba(226, 232, 240, 0.95); font-size: 12px; display: none; }
-        .btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; border-radius: 16px; padding: 12px 14px; font-weight: 800; letter-spacing: 0.02em; text-transform: uppercase; transition: transform 120ms ease, filter 120ms ease, box-shadow 120ms ease; }
-        .btn:active { transform: translateY(1px); }
-        .btn-primary { background: var(--accent); box-shadow: 0 14px 35px rgba(37, 99, 235, 0.28); color: white; }
-        .btn-ghost { background: var(--bg-main); border: 1px solid var(--border); }
-        .btn-ghost:hover { background: var(--panel); }
-        @keyframes msg-enter { 0% { opacity: 0; transform: translateY(15px) scale(0.95); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
-        .msg-enter { animation: msg-enter 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
-        .receipt-icon { width: 14px; height: 14px; display: inline-block; vertical-align: middle; }
-        .receipt-sent { color: #94a3b8; }
-        .receipt-delivered { color: #94a3b8; }
-        .receipt-read { color: #3b82f6; }
-        .markdown-bold { font-weight: 800; }
-        .markdown-italic { font-style: italic; }
-        .markdown-code { background: rgba(0,0,0,0.3); padding: 2px 4px; border-radius: 4px; font-family: monospace; font-size: 0.9em; }
-        .chat-link { color: #93c5fd; text-decoration: underline; text-underline-offset: 2px; }
-        .chat-image { max-width: 100%; max-height: 250px; object-fit: cover; border-radius: 8px; margin-top: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); cursor: pointer; }
-        .online-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; background: #10b981; box-shadow: 0 0 10px rgba(16, 185, 129, 0.5); }
-        .offline-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; background: #64748b; }
-        .sidebar { width: 280px; flex-shrink: 0; background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(20px); border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 50; }
-        .sidebar-item { padding: 10px 16px; border-radius: 12px; cursor: pointer; margin: 2px 8px; font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 10px; transition: all 0.2s; }
-        .sidebar-item:hover { background: rgba(255,255,255,0.05); }
-        .sidebar-item.active { background: var(--accent); color: white; }
-        .sidebar-label { padding: 16px 20px 8px; font-size: 10px; font-weight: 900; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.1em; }
-        
-        /* Pulse Animation for Cluster */
-        @keyframes pulse-ring { 0% { transform: scale(0.33); } 80%, 100% { opacity: 0; } }
-        @keyframes pulse-dot { 0% { transform: scale(0.8); } 50% { transform: scale(1); } 100% { transform: scale(0.8); } }
-        .cluster-node { position: relative; width: 40px; height: 40px; }
-        .cluster-node:before { content: ''; position: absolute; left: -20px; top: -20px; width: 80px; height: 80px; border-radius: 45px; background-color: #01a4e9; animation: pulse-ring 1.25s cubic-bezier(0.215, 0.61, 0.355, 1) infinite; }
-        .cluster-node:after { content: ''; position: absolute; left: 0; top: 0; width: 40px; height: 40px; border-radius: 20px; background-color: white; box-shadow: 0 0 8px rgba(0,0,0,0.3); animation: pulse-dot 1.25s cubic-bezier(0.455, 0.03, 0.515, 0.955) -0.4s infinite; }
+
+        .sidebar {
+            background: rgba(15, 23, 42, 0.9);
+            border-right: 1px solid var(--border);
+        }
+
+        .sidebar-item {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .sidebar-item::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 0; width: 0; height: 100%;
+            background: var(--accent);
+            opacity: 0.1;
+            transition: width 0.3s ease;
+        }
+
+        .sidebar-item:hover::before { width: 100%; }
+        .sidebar-item.active { background: var(--accent); color: white; box-shadow: 0 4px 15px var(--accent-glow); }
+
+        /* Animated Message Entry */
+        @keyframes slideUpFade {
+            from { opacity: 0; transform: translateY(20px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .message-anim {
+            animation: slideUpFade 0.4s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+        }
+
+        /* Custom Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+        /* Pulsing Glow */
+        .glow-accent {
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        .chat-input-container {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+        }
+
+        .btn-premium {
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+        }
+
+        .btn-premium:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(99, 102, 241, 0.5);
+        }
     </style>
 </head>
-<body class="h-screen overflow-hidden font-sans selection:bg-blue-500/30 selection:text-slate-100 flex">
+<body class="selection:bg-indigo-500/30 flex">
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
@@ -115,38 +146,38 @@
         </nav>
 
         <!-- Chat Area -->
-        <section id="view-home" class="view flex flex-col h-full">
-            <header class="h-16 flex justify-between items-center px-6 border-b border-white/5 bg-white/[0.02] backdrop-blur-md">
-                <div class="flex items-center gap-3">
-                    <div id="chat-header-icon" class="w-8 h-8 rounded-lg flex items-center justify-center text-white/50 text-sm border border-white/10">#</div>
+        <section id="view-home" class="view flex flex-col h-full relative">
+            <header class="h-20 flex justify-between items-center px-8 glass-panel border-0 border-b z-10">
+                <div class="flex items-center gap-4">
+                    <div id="chat-header-icon" class="w-10 h-10 rounded-2xl flex items-center justify-center bg-white/5 text-indigo-400 border border-white/10 font-bold">#</div>
                     <div>
-                        <h2 id="active-room-display" class="font-black text-sm uppercase tracking-wider">general</h2>
+                        <h2 id="active-room-display" class="font-black text-lg uppercase tracking-tight">general</h2>
                         <div class="flex items-center gap-2">
-                            <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
-                            <span id="room-status" class="text-[10px] font-bold text-muted uppercase">Global Cluster Chat</span>
+                            <span class="w-2 h-2 bg-emerald-500 rounded-full glow-accent"></span>
+                            <span id="room-status" class="text-[10px] font-bold text-muted uppercase tracking-widest">Secure Quantum Tunnel</span>
                         </div>
                     </div>
                 </div>
                 <div class="flex items-center gap-4">
                     <div class="relative hidden sm:block">
-                        <i class="fas fa-search text-muted absolute left-3 top-1/2 -translate-y-1/2 text-xs"></i>
-                        <input id="search" class="bg-white/5 border border-white/10 rounded-full pl-9 pr-4 py-1.5 text-xs outline-none focus:border-blue-500/50" placeholder="Search archive...">
+                        <i class="fas fa-search text-muted absolute left-4 top-1/2 -translate-y-1/2 text-xs"></i>
+                        <input id="search" class="bg-white/5 border border-white/10 rounded-full pl-10 pr-4 py-2 text-xs outline-none focus:border-indigo-500/50 transition-all w-64" placeholder="Search archive...">
                     </div>
-                    <button id="clear-chat" class="p-2 text-muted hover:text-red-500 transition-colors"><i class="fas fa-trash-alt"></i></button>
+                    <button id="clear-chat" class="w-10 h-10 flex items-center justify-center rounded-xl text-muted hover:text-red-400 hover:bg-red-500/10 transition-all"><i class="fas fa-trash-alt"></i></button>
                 </div>
             </header>
 
-            <div id="messages" class="flex-grow overflow-y-auto p-6 space-y-4 chat-wallpaper custom-scrollbar"></div>
+            <div id="messages" class="flex-grow overflow-y-auto p-8 space-y-6 custom-scrollbar scroll-smooth"></div>
 
-            <div id="typing-indicator" class="px-6 py-1 text-[10px] font-black uppercase text-blue-400 opacity-0 transition-opacity">Someone is typing...</div>
+            <div id="typing-indicator" class="absolute bottom-24 left-8 text-[10px] font-black uppercase text-indigo-400 opacity-0 transition-opacity drop-shadow-lg">Someone is decrypting...</div>
             
-            <footer class="p-4 border-t border-white/5">
-                <form id="form" class="max-w-4xl mx-auto flex gap-3">
-                    <button type="button" onclick="document.getElementById('file-input').click()" class="w-12 h-12 flex items-center justify-center rounded-2xl bg-white/5 border border-white/10 text-muted hover:text-white transition-colors"><i class="fas fa-plus"></i></button>
+            <footer class="p-6">
+                <div class="max-w-5xl mx-auto chat-input-container p-2 flex gap-3 shadow-2xl">
+                    <button type="button" onclick="document.getElementById('file-input').click()" class="w-12 h-12 flex items-center justify-center rounded-xl bg-white/5 text-muted hover:text-white transition-colors"><i class="fas fa-plus"></i></button>
                     <input type="file" id="file-input" class="hidden" onchange="uploadFile(this)">
-                    <input id="input" autocomplete="off" class="flex-grow bg-white/5 border border-white/10 rounded-2xl px-6 outline-none focus:border-blue-500/50" placeholder="Type a message to #general...">
-                    <button class="w-12 h-12 flex items-center justify-center rounded-2xl bg-blue-600 shadow-lg shadow-blue-600/30 text-white"><i class="fas fa-paper-plane"></i></button>
-                </form>
+                    <input id="input" autocomplete="off" class="flex-grow bg-transparent border-0 px-4 outline-none text-sm placeholder:text-slate-500" placeholder="Message #general...">
+                    <button class="w-12 h-12 flex items-center justify-center rounded-xl btn-premium text-white"><i class="fas fa-paper-plane"></i></button>
+                </div>
             </footer>
         </section>
 
@@ -594,13 +625,14 @@
             const msgEl = document.createElement('div');
             msgEl.id = 'msg-' + data.id;
             msgEl.dataset.msgId = data.id;
-            msgEl.className = `flex ${isMe ? 'justify-end' : 'justify-start'} group msg-enter`;
+            msgEl.className = `flex ${isMe ? 'justify-end' : 'justify-start'} group message-anim`;
             
             msgEl.innerHTML = `
                 <div class="relative flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[80%]" data-msg-id="${data.id}">
-                    <div class="p-4 rounded-2xl shadow-xl ${isMe ? 'rounded-tr-none text-white' : 'rounded-tl-none'} transition-all" style="background:var(--${isMe ? 'bubble-me' : 'bubble-them'})">
-                        <p class="text-sm leading-relaxed" style="color:var(--text-main)">${parseMessageContent(data.text)}</p>
-                        <p class="text-[9px] font-bold mt-1 text-right opacity-50">${data.time}</p>
+                    ${!isMe ? `<span class="text-[10px] font-black uppercase text-indigo-400 mb-1 ml-2 tracking-widest">${data.sender}</span>` : ''}
+                    <div class="p-4 rounded-3xl shadow-2xl ${isMe ? 'rounded-tr-none text-white' : 'rounded-tl-none'} transition-all" style="background:var(--${isMe ? 'bubble-me' : 'bubble-them'})">
+                        <p class="text-[13px] leading-relaxed font-medium" style="color:var(--text-main)">${parseMessageContent(data.text)}</p>
+                        <p class="text-[9px] font-bold mt-2 text-right opacity-40 tracking-tighter">${data.time}</p>
                     </div>
                     <div class="reactions flex flex-wrap gap-1 mt-1">${renderReactions(data.id, data.reactions)}</div>
                     <div class="status text-[9px] text-muted mt-1 flex items-center justify-between w-full">
@@ -678,12 +710,13 @@
             const msgEl = document.createElement('div');
             msgEl.id = 'msg-' + data.id;
             msgEl.dataset.msgId = data.id;
-            msgEl.className = `flex ${isMe ? 'justify-end' : 'justify-start'} group msg-enter`;
+            msgEl.className = `flex ${isMe ? 'justify-end' : 'justify-start'} group message-anim`;
             msgEl.innerHTML = `
                 <div class="relative flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[80%]" data-msg-id="${data.id}">
-                    <div class="p-4 rounded-2xl shadow-xl ${isMe ? 'rounded-tr-none text-white' : 'rounded-tl-none'}" style="background:var(--${isMe ? 'bubble-me' : 'bubble-them'})">
-                        <p class="text-sm leading-relaxed" style="color:var(--text-main)">${parseMessageContent(data.text)}</p>
-                        <p class="text-[9px] font-bold mt-1 text-right opacity-50">${data.time}</p>
+                    ${!isMe ? `<span class="text-[10px] font-black uppercase text-indigo-400 mb-1 ml-2 tracking-widest">${data.sender}</span>` : ''}
+                    <div class="p-4 rounded-3xl shadow-2xl ${isMe ? 'rounded-tr-none text-white' : 'rounded-tl-none'}" style="background:var(--${isMe ? 'bubble-me' : 'bubble-them'})">
+                        <p class="text-[13px] leading-relaxed font-medium" style="color:var(--text-main)">${parseMessageContent(data.text)}</p>
+                        <p class="text-[9px] font-bold mt-2 text-right opacity-40 tracking-tighter">${data.time}</p>
                     </div>
                     <div class="reactions flex flex-wrap gap-1 mt-1">${renderReactions(data.id, data.reactions)}</div>
                     <div class="status text-[9px] text-muted mt-1 flex items-center justify-between w-full">

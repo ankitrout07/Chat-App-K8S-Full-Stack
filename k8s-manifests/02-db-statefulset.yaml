@@ -4,12 +4,38 @@ metadata:
   name: db-init-script
 data:
   init.sql: |
-    CREATE TABLE IF NOT EXISTS messages (
+    -- Users Table
+    CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
-      content TEXT NOT NULL,
+      username TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      avatar_url TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
+
+    -- Messages Table (Updated)
+    CREATE TABLE IF NOT EXISTS messages (
+      id SERIAL PRIMARY KEY,
+      user_id INT REFERENCES users(id) ON DELETE CASCADE,
+      sender TEXT NOT NULL,
+      text TEXT NOT NULL,
+      time TEXT NOT NULL,
+      room TEXT NOT NULL DEFAULT 'global',
+      delivered_at TIMESTAMP NULL,
+      read_at TIMESTAMP NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
+
+    -- Reactions Table
+    CREATE TABLE IF NOT EXISTS reactions (
+      id SERIAL PRIMARY KEY,
+      message_id INT REFERENCES messages(id) ON DELETE CASCADE,
+      user_id INT REFERENCES users(id) ON DELETE CASCADE,
+      emoji TEXT NOT NULL,
+      UNIQUE(message_id, user_id, emoji)
+    );
 ---
 apiVersion: v1
 kind: Service

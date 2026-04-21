@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -12,15 +13,18 @@ const fs = require('fs');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'tunnel-pro-secret-key-1337';
 const app = express();
+const compression = require('compression');
+app.use(compression());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'app')));
+const oneDay = 86400000;
+app.use(express.static(path.join(__dirname, 'app'), { maxAge: oneDay }));
 app.use('/uploads', express.static(path.join(__dirname, 'app', 'uploads')));
 
-// Ensure uploads directory exists
-if (!fs.existsSync('./app/uploads')) fs.mkdirSync('./app/uploads', { recursive: true });
+const UPLOADS_DIR = path.join(__dirname, 'app', 'uploads');
+if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, './app/uploads'),
+  destination: (req, file, cb) => cb(null, UPLOADS_DIR),
   filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname)
 });
 const upload = multer({ storage });
@@ -257,7 +261,11 @@ io.on('connection', (socket) => {
     });
 });
 
-server.listen(3000, '0.0.0.0', () => console.log('🚀 Tunnel v14 Control Live'));
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Tunnel v14 Control Live on port ${PORT}`));
+
+// Health check for Azure/K8s
+app.get('/health', (req, res) => res.status(200).send('OK'));
 
 // Initialize all services on startup
 (async () => {
