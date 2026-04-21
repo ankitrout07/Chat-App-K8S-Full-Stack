@@ -11,11 +11,11 @@ on:
 
 env:
   NODE_ENV: "production"
+  PORT: 8080
   DB_HOST: "chatapp-db-pg-1776761738.postgres.database.azure.com"
   DB_NAME: "chatapp"
   DB_USER: "ankitadmin"
   REDIS_HOST: ${{ secrets.REDIS_HOST }}
-  REDIS_PORT: "6379"
   JWT_SECRET: ${{ secrets.JWT_SECRET }}
   POSTGRES_PASSWORD: ${{ secrets.DB_PASS }}
 
