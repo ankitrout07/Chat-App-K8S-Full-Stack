@@ -234,41 +234,64 @@
         </section>
 
         <section id="view-monitor" class="view hidden p-10 max-w-5xl mx-auto min-h-full flex flex-col justify-center">
-            <div class="panel p-8 sm:p-10 rounded-[2.5rem] shadow-2xl">
-                <div class="flex justify-between items-center mb-8">
-                    <h3 class="text-2xl font-black tracking-tight"><i class="fas fa-gauge-high mr-3" style="color:var(--accent)"></i>System Monitor</h3>
-                    <div id="msg-count-container" class="text-xs font-bold uppercase text-muted">Total Cache: <span id="msg-count" class="text-emerald-500">0</span> messages</div>
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <div class="p-6 rounded-3xl panel border text-center">
-                        <div class="text-[10px] font-black uppercase text-muted mb-2">Uptime</div>
-                        <div id="stat-uptime" class="text-xl font-bold">0s</div>
+            <div class="panel p-8 sm:p-12 rounded-[3rem] shadow-2xl relative overflow-hidden">
+                <!-- Background Glow -->
+                <div class="absolute -top-24 -right-24 w-64 h-64 bg-indigo-500/10 blur-[100px] rounded-full"></div>
+                
+                <div class="flex justify-between items-center mb-12 relative z-10">
+                    <div>
+                        <h3 class="text-3xl font-black tracking-tight mb-1"><i class="fas fa-microchip mr-3 text-indigo-400"></i>System Monitor</h3>
+                        <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-muted">Real-time Infrastructure Analytics</p>
                     </div>
-                    <div class="p-6 rounded-3xl panel border text-center">
-                        <div class="text-[10px] font-black uppercase text-muted mb-2">Memory (RSS)</div>
-                        <div id="stat-memory" class="text-xl font-bold">0MB</div>
-                    </div>
-                    <div class="p-6 rounded-3xl panel border text-center">
-                        <div class="text-[10px] font-black uppercase text-muted mb-2">Active Conns</div>
-                        <div id="stat-conns" class="text-xl font-bold">0</div>
-                    </div>
-                    <div class="p-6 rounded-3xl panel border text-center">
-                        <div class="text-[10px] font-black uppercase text-muted mb-2">Live Nodes</div>
-                        <div class="text-xl font-bold text-emerald-500">1</div>
+                    <div class="flex items-center gap-3 bg-white/5 px-4 py-2 rounded-2xl border border-white/10">
+                        <div id="heartbeat-dot" class="w-2 h-2 bg-emerald-500 rounded-full glow-accent transition-transform duration-200"></div>
+                        <span class="text-[10px] font-black uppercase text-emerald-500">Node Heartbeat</span>
                     </div>
                 </div>
-                <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div class="panel p-6 rounded-3xl border">
-                        <h4 class="text-xs font-black uppercase text-muted mb-4">Infrastructure Status</h4>
-                        <div class="space-y-3">
-                            <div class="flex justify-between text-sm"><span>PostgreSQL Cluster</span> <span class="text-emerald-500 font-bold">HEALTHY</span></div>
-                            <div class="flex justify-between text-sm"><span>Redis Adapter</span> <span class="text-emerald-500 font-bold">CONNECTED</span></div>
-                            <div class="flex justify-between text-sm"><span>WebSocket Gateway</span> <span class="text-emerald-500 font-bold">ACTIVE</span></div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12 relative z-10">
+                    <div class="p-8 rounded-[2rem] glass-panel text-center transition-all hover:border-indigo-500/30 group">
+                        <div class="text-[10px] font-black uppercase text-muted mb-4 tracking-widest">Server Uptime</div>
+                        <div id="stat-uptime" class="text-3xl font-black text-indigo-400 group-hover:scale-110 transition-transform">0s</div>
+                    </div>
+                    <div class="p-8 rounded-[2rem] glass-panel text-center transition-all hover:border-indigo-500/30 group">
+                        <div class="text-[10px] font-black uppercase text-muted mb-4 tracking-widest">Memory (RSS)</div>
+                        <div id="stat-memory" class="text-3xl font-black text-indigo-400 group-hover:scale-110 transition-transform">0MB</div>
+                    </div>
+                    <div class="p-8 rounded-[2rem] glass-panel text-center transition-all hover:border-indigo-500/30 group">
+                        <div class="text-[10px] font-black uppercase text-muted mb-4 tracking-widest">Active Conns</div>
+                        <div id="stat-conns" class="text-3xl font-black text-indigo-400 group-hover:scale-110 transition-transform">0</div>
+                    </div>
+                    <div class="p-8 rounded-[2rem] glass-panel text-center transition-all hover:border-indigo-500/30 group">
+                        <div class="text-[10px] font-black uppercase text-muted mb-4 tracking-widest">Live Nodes</div>
+                        <div id="stat-nodes" class="text-3xl font-black text-indigo-400 group-hover:scale-110 transition-transform">1</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10">
+                    <div class="p-8 rounded-[2.5rem] glass-panel">
+                        <h4 class="text-[10px] font-black uppercase tracking-widest text-muted mb-6">Infrastructure Status</h4>
+                        <div class="space-y-4">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm font-medium opacity-70">PostgreSQL Cluster</span>
+                                <span id="mon-db-status" class="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-black uppercase border border-emerald-500/20">Healthy</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm font-medium opacity-70">Redis Adapter</span>
+                                <span id="mon-redis-status" class="px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-500 text-[10px] font-black uppercase border border-indigo-500/20">Connected</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm font-medium opacity-70">WebSocket Gateway</span>
+                                <span class="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-black uppercase border border-emerald-500/20">Active</span>
+                            </div>
                         </div>
                     </div>
-                    <div class="panel p-6 rounded-3xl border flex flex-col items-center justify-center bg-blue-900/10">
-                        <div class="cluster-node mb-4"></div>
-                        <div class="text-[10px] font-black uppercase text-blue-400">Master Node Heartbeat</div>
+                    <div class="p-8 rounded-[2.5rem] glass-panel flex flex-col items-center justify-center text-center">
+                        <div class="w-16 h-16 rounded-full bg-indigo-500/10 flex items-center justify-center mb-4 border border-indigo-500/20">
+                            <i class="fas fa-shield-halved text-2xl text-indigo-400"></i>
+                        </div>
+                        <h4 class="text-sm font-black mb-1 tracking-tight uppercase">Master Node Control</h4>
+                        <p class="text-[10px] text-muted font-bold uppercase tracking-widest">Tunnel v14 Protocol Secure</p>
                     </div>
                 </div>
             </div>
@@ -304,35 +327,45 @@
         let currentRoom = 'global';
         
         const themes = {
-            dark: { wallpaper: 'https://w0.peakpx.com/wallpaper/508/606/HD-wallpaper-whatsapp-dark-background-whatsapp-dark-mode.jpg' },
-            light: { wallpaper: 'https://www.transparenttextures.com/patterns/bright-squares.png' },
-            solar: { wallpaper: 'https://www.transparenttextures.com/patterns/diagonal-noise.png' }
+            dark: { 
+                '--bg-main': '#0a0f1e', '--panel': 'rgba(16, 24, 39, 0.7)', '--text-main': '#f1f5f9', 
+                '--accent': '#6366f1', '--bubble-me': '#6366f1', '--bubble-them': 'rgba(30, 41, 59, 0.8)' 
+            },
+            light: { 
+                '--bg-main': '#f8fafc', '--panel': 'rgba(255, 255, 255, 0.9)', '--text-main': '#0f172a', 
+                '--accent': '#4f46e5', '--bubble-me': '#4f46e5', '--bubble-them': 'rgba(241, 245, 249, 1)' 
+            },
+            solar: { 
+                '--bg-main': '#002b36', '--panel': 'rgba(7, 54, 66, 0.8)', '--text-main': '#839496', 
+                '--accent': '#b58900', '--bubble-me': '#b58900', '--bubble-them': 'rgba(7, 54, 66, 1)' 
+            }
         };
         
         function applyTheme(name) {
-            document.documentElement.setAttribute('data-theme', name);
+            const root = document.documentElement;
             const vars = themes[name];
-            if (vars && vars.wallpaper) {
-                document.querySelectorAll('.chat-wallpaper').forEach(el => {
-                    el.style.backgroundImage = `url('${vars.wallpaper}')`;
-                });
-            }
+            Object.entries(vars).forEach(([key, val]) => root.style.setProperty(key, val));
+            
             localStorage.setItem('chat-theme', name);
-            
-            const toastEl = document.getElementById('toast');
-            if (toastEl && toastEl.style) toast(`Theme applied: ${name.toUpperCase()}`);
-            
-            if (typeof renderUsers === 'function') renderUsers();
-            
-            document.querySelectorAll('#messages .p-4.rounded-2xl').forEach(el => {
-                const parent = el.closest('.msg-enter');
-                if(!parent) return;
-                const isMe = parent.classList.contains('justify-end');
-                const pText = el.querySelector('p');
-                if(pText) pText.style.color = 'var(--text-main)';
-                el.style.background = `var(--${isMe ? 'bubble-me' : 'bubble-them'})`;
-            });
+            if (typeof toast === 'function') toast(`Theme: ${name.toUpperCase()}`);
         }
+
+        socket.on('system-stats', (stats) => {
+            if (document.getElementById('stat-uptime')) {
+                document.getElementById('stat-uptime').innerText = stats.uptime + 's';
+                document.getElementById('stat-memory').innerText = stats.memory + 'MB';
+                document.getElementById('stat-conns').innerText = stats.connections;
+                document.getElementById('mon-db-status').innerText = stats.dbStatus;
+                document.getElementById('mon-redis-status').innerText = stats.redisStatus;
+                
+                // Animate heartbeat
+                const heart = document.getElementById('heartbeat-dot');
+                if (heart) {
+                    heart.style.transform = 'scale(1.5)';
+                    setTimeout(() => heart.style.transform = 'scale(1)', 200);
+                }
+            }
+        });
         
         const savedTheme = localStorage.getItem('chat-theme') || 'dark';
         applyTheme(savedTheme);
