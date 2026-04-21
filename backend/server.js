@@ -39,14 +39,22 @@ const db = new Client({
   port: 5432,
 });
 
-// Properly initialize database connection
-async function initializeDB() {
-  try {
-    await db.connect();
-    console.log('✅ Database connected');
-  } catch (err) {
-    console.error('❌ DB Connection Failed:', err.message);
-    process.exit(1);
+// Properly initialize database connection with retries
+async function initializeDB(retries = 5) {
+  while (retries > 0) {
+    try {
+      await db.connect();
+      console.log('✅ Database connected');
+      return;
+    } catch (err) {
+      retries -= 1;
+      console.error(`❌ DB Connection Failed (${retries} retries left):`, err.message);
+      if (retries === 0) {
+        process.exit(1);
+      }
+      // Wait 5 seconds before retrying
+      await new Promise(res => setTimeout(res, 5000));
+    }
   }
 }
 
