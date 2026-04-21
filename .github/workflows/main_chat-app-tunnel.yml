@@ -67,12 +67,14 @@ jobs:
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
+          allow-no-subscriptions: false
 
       - name: 'Deploy to Azure Web App'
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'chat-app-tunnel'
-          resource-group: 'Dev-Test-RG'
+          resource-group-name: 'Dev-Test-RG'
           package: backend
+          startup-command: 'node server.js'
           
