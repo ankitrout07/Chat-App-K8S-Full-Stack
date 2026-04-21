@@ -218,25 +218,31 @@ setInterval(async () => {
 
 io.on('connection', (socket) => {
     const { id: userId, username } = socket.user;
-    console.log(`✓ Client authenticated: ${username} (${socket.id})`);
+    const userIp = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address;
+    console.log(`✓ Client authenticated: ${username} (${socket.id}) from IP: ${userIp}`);
 
     // Add to online tracking
     if (!onlineUsers.has(userId)) {
-        onlineUsers.set(userId, new Set());
-        io.emit('user:online', { userId, username });
+        onlineUsers.set(userId, { sockets: new Set(), ip: userIp, username });
+        io.emit('user:online', { userId, username, ip: userIp });
     }
-    onlineUsers.get(userId).add(socket.id);
+    onlineUsers.get(userId).sockets.add(socket.id);
 
     // Initial sync of online users for the newly connected client
-    socket.emit('online:list', Array.from(onlineUsers.keys()));
+    const onlineList = Array.from(onlineUsers.entries()).map(([id, data]) => ({
+        userId: id,
+        username: data.username,
+        ip: data.ip
+    }));
+    socket.emit('online:list', onlineList);
 
     socket.on('disconnect', () => {
         console.log(`✗ Client disconnected: ${username} (${socket.id})`);
         
-        const sockets = onlineUsers.get(userId);
-        if (sockets) {
-            sockets.delete(socket.id);
-            if (sockets.size === 0) {
+        const userData = onlineUsers.get(userId);
+        if (userData) {
+            userData.sockets.delete(socket.id);
+            if (userData.sockets.size === 0) {
                 onlineUsers.delete(userId);
                 io.emit('user:offline', { userId, username });
             }

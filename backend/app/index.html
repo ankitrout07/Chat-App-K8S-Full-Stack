@@ -120,9 +120,9 @@
         
         <div class="flex-grow overflow-y-auto custom-scrollbar pt-2">
             <div class="sidebar-label">Global Channels</div>
-            <div class="sidebar-item active" onclick="joinRoom('global')"><i class="fas fa-hashtag text-[10px]"></i> general</div>
-            <div class="sidebar-item" onclick="joinRoom('#dev-ops')"><i class="fas fa-hashtag text-[10px]"></i> dev-ops</div>
-            <div class="sidebar-item" onclick="joinRoom('#k8s-logs')"><i class="fas fa-hashtag text-[10px]"></i> k8s-logs</div>
+            <div class="sidebar-item active" data-room="global" onclick="joinRoom('global')"><i class="fas fa-hashtag text-[10px]"></i> general</div>
+            <div class="sidebar-item" data-room="dev-ops" onclick="joinRoom('dev-ops')"><i class="fas fa-hashtag text-[10px]"></i> dev-ops</div>
+            <div class="sidebar-item" data-room="k8s-logs" onclick="joinRoom('k8s-logs')"><i class="fas fa-hashtag text-[10px]"></i> k8s-logs</div>
 
             <div class="sidebar-label">Direct Messages</div>
             <div id="sidebar-users" class="space-y-1"></div>
@@ -595,31 +595,20 @@
         function joinRoom(room) {
             currentRoom = room;
             socket.emit('join room', room);
-            document.getElementById('messages').innerHTML = ''; // Clear for room change
-            offset = 0; // Reset pagination
+            document.getElementById('messages').innerHTML = '';
+            offset = 0;
             loadMessages();
             showView('home');
             
-            // Update UI
             const isDM = room.startsWith('dm_');
             const display = isDM ? '@' + room.split('_').slice(1).join(' & ') : room;
             document.getElementById('active-room-display').innerText = display;
             document.getElementById('chat-header-icon').innerText = isDM ? '@' : '#';
-            document.getElementById('input').placeholder = `Type a message to ${display}...`;
             
             document.querySelectorAll('.sidebar-item').forEach(el => {
-                el.classList.toggle('active', el.textContent.includes(display) || (display === 'general' && el.textContent.includes('general')));
+                const roomAttr = el.getAttribute('data-room');
+                el.classList.toggle('active', roomAttr === room);
             });
-        }
-
-        async function fetchAndRenderUsers() {
-            try {
-                const res = await fetch('/users');
-                allUsers = await res.json();
-                renderUsers();
-            } catch (e) {
-                console.error('Failed to fetch users', e);
-            }
         }
 
         function renderUsers() {
@@ -627,14 +616,16 @@
             if (!list) return;
             const otherUsers = allUsers.filter(u => u.username !== currentUser);
             list.innerHTML = otherUsers.map(u => {
-                const isOnline = onlineUserIds.has(u.id);
+                const onlineData = Array.from(onlineUserIds).find(o => o.userId === u.id);
+                const isOnline = !!onlineData;
                 const room = getDMId(authUser ? authUser.id : 0, u.id);
+                const ipDisplay = isOnline ? `<span class="text-[8px] opacity-40 ml-auto">${onlineData.ip.replace('::ffff:', '')}</span>` : '';
+                
                 return `
-                <div class="sidebar-item" onclick="joinRoom('${room}')">
-                    <div class="relative">
-                        <div class="w-2 h-2 rounded-full ${isOnline ? 'online-dot' : 'offline-dot'}"></div>
-                    </div>
+                <div class="sidebar-item" data-room="${room}" onclick="joinRoom('${room}')">
+                    <div class="w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-700'}"></div>
                     <span class="truncate">${u.username}</span>
+                    ${ipDisplay}
                 </div>`;
             }).join('');
         }
