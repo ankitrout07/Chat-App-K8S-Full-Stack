@@ -9,6 +9,15 @@ on:
       - main
   workflow_dispatch:
 
+env:
+  DB_HOST: "db-service"
+  DB_NAME: "postgres"
+  DB_USER: "postgres"
+  REDIS_HOST: "redis-service"
+  REDIS_PORT: "6379"
+  JWT_SECRET: ${{ secrets.JWT_SECRET }}
+  POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+
 jobs:
   build:
     runs-on: ubuntu-latest
