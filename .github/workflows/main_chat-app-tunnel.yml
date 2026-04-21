@@ -73,6 +73,6 @@ jobs:
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'chat-app-tunnel'
-          slot-name: 'Production'
+          resource-group: 'Dev-Test-RG'
           package: backend
           
