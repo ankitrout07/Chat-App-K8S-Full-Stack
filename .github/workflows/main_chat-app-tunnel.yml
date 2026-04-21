@@ -9,16 +9,6 @@ on:
       - main
   workflow_dispatch:
 
-env:
-  NODE_ENV: "production"
-  DB_HOST: "db-service"
-  DB_NAME: "postgres"
-  DB_USER: "postgres"
-  REDIS_HOST: "redis-service"
-  REDIS_PORT: "6379"
-  JWT_SECRET: ${{ secrets.JWT_SECRET }}
-  POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -34,7 +24,6 @@ jobs:
           node-version: '22.x'
 
       - name: npm install, build, and test
-        working-directory: backend
         run: |
           npm install
           npm run build --if-present
@@ -44,7 +33,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: node-app
-          path: backend/
+          path: .
 
   deploy:
     runs-on: ubuntu-latest
@@ -66,9 +55,9 @@ jobs:
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_CE85BFD200D2409998F06C05A69E5E84 }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_BC996697B7EE41DDA1F09E5677E61970 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_412E8E8363C040B98B6AE4DDF8DA9DAE }}
 
       - name: 'Deploy to Azure Web App'
         id: deploy-to-webapp
