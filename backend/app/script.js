@@ -345,6 +345,12 @@ function sendInvite() {
 function sendMessage() {
     const inputDom = document.getElementById('input');
     if (inputDom.value) {
+        if (editingMsgId) {
+            socket.emit('editRequest', { msgId: editingMsgId, newText: inputDom.value });
+            cancelEdit();
+            return;
+        }
+        
         const payload = { 
             user: currentUser || 'Guest', 
             userId: authUser ? authUser.id : null,
@@ -471,6 +477,7 @@ function joinRoom(room, groupId) {
     document.getElementById('messages').innerHTML = '';
     offset = 0;
     loadMessages();
+    socket.emit('fetchPinnedMessages', room);
     showView('home');
     
     document.getElementById('active-room-display').innerText = room;
@@ -545,6 +552,74 @@ function updateMessageCount() {
     const count = document.querySelectorAll('#messages .relative').length;
     const mc = document.getElementById('msg-count');
     if(mc) mc.innerText = `${count} msgs`;
+}
+
+// --- EDIT & PIN LOGIC ---
+let editingMsgId = null;
+
+function startEdit(msgId, text) {
+    editingMsgId = msgId;
+    const input = document.getElementById('input');
+    input.value = text;
+    input.classList.add('editing-active');
+    input.placeholder = "Editing message... (Esc to cancel)";
+    input.focus();
+    
+    // Add visual indicator for editing
+    document.querySelector('.chat-input-container').style.borderColor = 'var(--accent-secondary)';
+}
+
+function cancelEdit() {
+    editingMsgId = null;
+    const input = document.getElementById('input');
+    input.value = '';
+    input.classList.remove('editing-active');
+    input.placeholder = "Transmit secure message...";
+    document.querySelector('.chat-input-container').style.borderColor = 'rgba(255,255,255,0.05)';
+}
+
+function pinMessage(msgId) {
+    socket.emit('pinRequest', msgId);
+    toast('Pinning message...');
+}
+
+function unpinMessage(msgId) {
+    socket.emit('unpinRequest', msgId);
+    toast('Unpinning message...');
+}
+
+function renderPinnedMessages(messages) {
+    const container = document.getElementById('pinned-messages');
+    if (!container) return;
+    
+    if (messages.length === 0) {
+        container.innerHTML = `<div class="text-[9px] text-muted opacity-30 italic text-center py-2">No active announcements</div>`;
+        return;
+    }
+    
+    container.innerHTML = messages.map(m => `
+        <div class="p-3 rounded-xl bg-amber-500/5 border border-amber-500/10 hover:border-amber-500/30 transition-all cursor-pointer group relative overflow-hidden" onclick="jumpToMessage(${m.id})">
+            <div class="absolute inset-0 bg-gradient-to-r from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <div class="flex justify-between items-start gap-2 relative z-10">
+                <div class="flex flex-col min-w-0">
+                    <span class="text-[8px] font-black uppercase text-amber-400 mb-1 tracking-widest">${m.sender}</span>
+                    <p class="text-[10px] text-white/70 line-clamp-2 leading-relaxed">${m.text}</p>
+                </div>
+                <button onclick="event.stopPropagation(); unpinMessage(${m.id})" class="text-[8px] text-amber-500/40 hover:text-red-400 transition-colors"><i class="fas fa-times"></i></button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function jumpToMessage(id) {
+    const el = document.getElementById('msg-' + id);
+    if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('highlight-flash');
+        setTimeout(() => el.classList.remove('highlight-flash'), 2000);
+    } else {
+        toast('Message too far back in history');
+    }
 }
 
 let offset = 0;
@@ -801,16 +876,20 @@ socket.on('chat message', (data) => {
                     ${data.ephemeral ? '<p class="text-[8px] italic opacity-50 mt-1">Ephemeral - Not saved to archive</p>' : ''}
                 </div>
                 <div class="reactions flex flex-wrap gap-1.5 mt-2">${renderReactions(data.id, data.reactions)}</div>
-                <div class="status text-[9px] text-muted mt-2 flex items-center justify-between w-full px-1">
-                    <div class="flex items-center gap-1.5">${isMe ? SVGS.sent : ''}</div>
+                    <div class="flex items-center gap-1.5">${isMe ? SVGS.sent : ''} ${data.updated_at ? `<span class="text-[8px] opacity-40 ml-1 italic">(edited)</span>` : ''}</div>
                     <div class="hidden group-hover:flex gap-3 items-center ml-4 bg-black/40 backdrop-blur-md rounded-full px-3 py-1.5 border border-white/5">
                         <button onclick="addReaction(${data.id}, '👍')" class="hover:scale-125 transition-transform">👍</button>
                         <button onclick="addReaction(${data.id}, '❤️')" class="hover:scale-125 transition-transform">❤️</button>
                         <button onclick="addReaction(${data.id}, '🔥')" class="hover:scale-125 transition-transform">🔥</button>
-                        <button onclick="setReply(${data.id}, '${data.sender}', '${data.text.replace(/'/g, "\\'")}')" class="hover:text-indigo-400 transition-colors ml-1"><i class="fas fa-reply text-[10px]"></i></button>
+                        <button onclick="setReply(${data.id}, '${data.sender}', '${data.text.replace(/'/g, "\\'")}')" title="Reply" class="hover:text-indigo-400 transition-colors ml-1"><i class="fas fa-reply text-[10px]"></i></button>
+                        ${isMe ? `<button onclick="startEdit(${data.id}, '${data.text.replace(/'/g, "\\'")}')" title="Edit" class="hover:text-emerald-400 transition-colors"><i class="fas fa-pen text-[10px]"></i></button>` : ''}
+                        <button onclick="${data.is_pinned ? `unpinMessage(${data.id})` : `pinMessage(${data.id})`}" title="${data.is_pinned ? 'Unpin' : 'Pin'}" class="${data.is_pinned ? 'text-amber-400' : 'hover:text-amber-400'} transition-colors">
+                            <i class="fas fa-thumbtack text-[10px]"></i>
+                        </button>
                         ${isMe ? `<button onclick="deleteMessage(${data.id})" class="hover:text-red-500 transition-colors ml-1"><i class="fas fa-trash-alt text-[10px]"></i></button>` : ''}
                     </div>
                 </div>
+                ${data.is_pinned ? `<div class="absolute -top-2 -right-2 w-5 h-5 bg-amber-500/20 text-amber-400 rounded-full flex items-center justify-center border border-amber-500/30 shadow-lg"><i class="fas fa-thumbtack text-[8px]"></i></div>` : ''}
             </div>`;
     }
 
@@ -867,18 +946,51 @@ socket.on('message read', (msgId) => {
 socket.on('reaction', (data) => {
     const el = document.querySelector(`#msg-${data.messageId} .reactions`);
     if (el) {
-        const existing = el.innerHTML;
-        if (!existing.includes(data.emoji)) {
-            el.innerHTML += `<div class="bg-slate-900/50 rounded-full px-2 py-0.5 border border-white/5 text-[10px] flex items-center gap-1"><span>${data.emoji}</span><span>1</span></div>`;
-        } else {
-            el.querySelectorAll('div').forEach(div => {
-                if (div.innerText.includes(data.emoji)) {
-                    const countSpan = div.querySelectorAll('span')[1];
-                    countSpan.innerText = parseInt(countSpan.innerText) + 1;
-                }
-            });
+        const groups = data.reactions || [];
+        el.innerHTML = renderReactions(data.messageId, groups);
+    }
+});
+
+socket.on('messageEdited', (data) => {
+    const msgEl = document.getElementById('msg-' + data.msgId);
+    if (msgEl) {
+        const textEl = msgEl.querySelector('.glass p');
+        if (textEl) textEl.innerHTML = parseMessageContent(data.newText);
+        
+        const statusDiv = msgEl.querySelector('.status div:first-child');
+        if (statusDiv && !statusDiv.innerHTML.includes('(edited)')) {
+            statusDiv.innerHTML += ` <span class="text-[8px] opacity-40 ml-1 italic">(edited)</span>`;
+        }
+        toast('Message updated');
+    }
+});
+
+socket.on('messagePinned', (data) => {
+    const msgEl = document.getElementById('msg-' + data.id);
+    if (msgEl) {
+        if (!msgEl.querySelector('.fa-thumbtack')) {
+            const pinIcon = document.createElement('div');
+            pinIcon.className = 'absolute -top-2 -right-2 w-5 h-5 bg-amber-500/20 text-amber-400 rounded-full flex items-center justify-center border border-amber-500/30 shadow-lg';
+            pinIcon.innerHTML = `<i class="fas fa-thumbtack text-[8px]"></i>`;
+            msgEl.querySelector('.relative').appendChild(pinIcon);
         }
     }
+    socket.emit('fetchPinnedMessages', currentRoom);
+    toast('Message pinned');
+});
+
+socket.on('messageUnpinned', (msgId) => {
+    const msgEl = document.getElementById('msg-' + msgId);
+    if (msgEl) {
+        const pinIcon = msgEl.querySelector('.absolute.-top-2.-right-2');
+        if (pinIcon) pinIcon.remove();
+    }
+    socket.emit('fetchPinnedMessages', currentRoom);
+    toast('Message unpinned');
+});
+
+socket.on('pinnedMessages', (messages) => {
+    renderPinnedMessages(messages);
 });
 
 socket.on('addedToGroup', (data) => {
@@ -986,6 +1098,10 @@ document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         document.getElementById('search').focus();
+    }
+    if (e.key === 'Escape') {
+        if (editingMsgId) cancelEdit();
+        if (replyingTo) cancelReply();
     }
 });
 

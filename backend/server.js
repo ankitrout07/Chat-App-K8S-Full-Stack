@@ -116,8 +116,10 @@ async function runMigrations() {
         room TEXT DEFAULT 'general',
         group_id INT REFERENCES groups(id) ON DELETE CASCADE,
         parent_id INT REFERENCES messages(id) ON DELETE CASCADE,
+        is_pinned BOOLEAN DEFAULT FALSE,
         delivered_at TIMESTAMP,
         read_at TIMESTAMP,
+        updated_at TIMESTAMP,
         created_at TIMESTAMP DEFAULT NOW()
       )
     `);
@@ -183,6 +185,26 @@ async function runMigrations() {
     if (parentCheck.rows.length === 0) {
       await db.query('ALTER TABLE messages ADD COLUMN parent_id INT REFERENCES messages(id) ON DELETE CASCADE');
       console.log('✅ Added parent_id FK to messages for threading');
+    }
+
+    // Add is_pinned column to messages if missing
+    const pinCheck = await db.query(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_name = 'messages' AND column_name = 'is_pinned'
+    `);
+    if (pinCheck.rows.length === 0) {
+      await db.query('ALTER TABLE messages ADD COLUMN is_pinned BOOLEAN DEFAULT FALSE');
+      console.log('✅ Added is_pinned column to messages');
+    }
+
+    // Add updated_at column to messages if missing
+    const updatedCheck = await db.query(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_name = 'messages' AND column_name = 'updated_at'
+    `);
+    if (updatedCheck.rows.length === 0) {
+      await db.query('ALTER TABLE messages ADD COLUMN updated_at TIMESTAMP');
+      console.log('✅ Added updated_at column to messages');
     }
 
     // Seed default channels if none exist
@@ -301,6 +323,29 @@ function setupMemoryFallback() {
       if (text.includes('SELECT COUNT(*) FROM groups')) return { rows: [{ count: memoryStore.groups.length }] };
       if (text.includes('SELECT NOW()')) return { rows: [{ time: new Date().toISOString(), name: 'MEMORY_STORE', size: '0 MB' }] };
 
+      if (text.includes('UPDATE messages SET text = $1, updated_at = NOW()')) {
+        const msg = memoryStore.messages.find(m => m.id === params[1] && m.user_id === params[2]);
+        if (msg) { msg.text = params[0]; msg.updated_at = new Date(); return { rows: [msg] }; }
+        return { rows: [] };
+      }
+      if (text.includes('UPDATE messages SET is_pinned = TRUE')) {
+        const msg = memoryStore.messages.find(m => m.id === params[0]);
+        if (msg) msg.is_pinned = true;
+        return { rows: [] };
+      }
+      if (text.includes('UPDATE messages SET is_pinned = FALSE')) {
+        const msg = memoryStore.messages.find(m => m.id === params[0]);
+        if (msg) msg.is_pinned = false;
+        return { rows: [] };
+      }
+      if (text.includes('SELECT * FROM messages WHERE id = $1')) {
+        const msg = memoryStore.messages.find(m => m.id === params[0]);
+        return { rows: msg ? [msg] : [] };
+      }
+      if (text.includes('SELECT * FROM messages WHERE room = $1 AND is_pinned = TRUE')) {
+        const pins = memoryStore.messages.filter(m => m.room === params[0] && m.is_pinned).sort((a,b) => b.created_at - a.created_at);
+        return { rows: pins };
+      }
       return { rows: [] };
     }
   };
@@ -789,7 +834,49 @@ io.on('connection', (socket) => {
         } catch (err) { console.error('Deletion Error:', err); }
     });
 
-    // new chat message - insert into db (with ChatOps bot interception)
+    // message editing
+    socket.on('editRequest', async ({ msgId, newText }) => {
+        try {
+            const result = await db.query(
+                'UPDATE messages SET text = $1, updated_at = NOW() WHERE id = $2 AND user_id = $3 RETURNING id, updated_at',
+                [newText, msgId, socket.user.id]
+            );
+            if (result.rows.length > 0) {
+                io.emit('messageEdited', { msgId, newText, updated_at: result.rows[0].updated_at });
+                console.log(`📝 Message ${msgId} edited by ${socket.user.username}`);
+            }
+        } catch (err) { console.error('Edit Error:', err); }
+    });
+
+    // pinning logic
+    socket.on('pinRequest', async (msgId) => {
+        try {
+            await db.query('UPDATE messages SET is_pinned = TRUE WHERE id = $1', [msgId]);
+            const res = await db.query('SELECT * FROM messages WHERE id = $1', [msgId]);
+            io.emit('messagePinned', res.rows[0]);
+            console.log(`📌 Message ${msgId} pinned by ${socket.user.username}`);
+        } catch (err) { console.error('Pin Error:', err); }
+    });
+
+    socket.on('unpinRequest', async (msgId) => {
+        try {
+            await db.query('UPDATE messages SET is_pinned = FALSE WHERE id = $1', [msgId]);
+            io.emit('messageUnpinned', msgId);
+            console.log(`📍 Message ${msgId} unpinned by ${socket.user.username}`);
+        } catch (err) { console.error('Unpin Error:', err); }
+    });
+
+    socket.on('fetchPinnedMessages', async (room) => {
+        try {
+            const result = await db.query(
+                'SELECT * FROM messages WHERE room = $1 AND is_pinned = TRUE ORDER BY created_at DESC',
+                [room]
+            );
+            socket.emit('pinnedMessages', result.rows);
+        } catch (err) { console.error('Fetch Pins Error:', err); }
+    });
+44: 
+45:     // new chat message - insert into db (with ChatOps bot interception)
     socket.on('chat message', async (data) => {
         const room = data.room || 'general';
         const text = (data.text || '').trim();
