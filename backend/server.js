@@ -560,11 +560,12 @@ io.on('connection', (socket) => {
     });
 
     // message deletion (also persist in DB)
-    socket.on('delete message', async (msgId) => {
+    socket.on('deleteRequest', async (msgId) => {
         try {
             await db.query('DELETE FROM messages WHERE id = $1', [msgId]);
-            io.emit('delete message', msgId);
-        } catch (err) { console.error(err); }
+            io.emit('messageDeleted', msgId);
+            console.log(`🗑️ Message ${msgId} deleted and broadcasted.`);
+        } catch (err) { console.error('Deletion Error:', err); }
     });
 
     // new chat message - insert into db (with ChatOps bot interception)

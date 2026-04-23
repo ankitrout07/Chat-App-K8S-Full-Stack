@@ -346,7 +346,7 @@ function renderReactions(msgId, reactions) {
     `).join('');
 }
 
-function deleteMessage(msgId) { socket.emit('delete message', msgId); }
+function deleteMessage(msgId) { socket.emit('deleteRequest', msgId); }
 
 function updateMessageCount() {
     const count = document.querySelectorAll('#messages .relative').length;
@@ -634,9 +634,19 @@ socket.on('typing', (data) => {
     }
 });
 
-socket.on('delete message', (msgId) => {
+socket.on('messageDeleted', (msgId) => {
     const el = document.getElementById('msg-' + msgId);
-    if (el) el.remove();
+    if (el) {
+        // Apply a "Quantum" fade-out effect before removing
+        el.style.opacity = '0';
+        el.style.transform = 'scale(0.9)';
+        el.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+        
+        setTimeout(() => {
+            el.remove();
+            updateMessageCount();
+        }, 300);
+    }
 });
 
 socket.on('message delivered', (msgId) => {
