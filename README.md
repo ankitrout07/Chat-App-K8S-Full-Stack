@@ -106,29 +106,58 @@ Open **http://localhost:3000** in your browser.
 
 ## 🚀 CI/CD Pipeline
 
-The project includes a robust GitHub Actions workflow located in `.github/workflows/main_chat-app-tunnel.yml`.
+The project includes a robust GitHub Actions workflow for automated deployment to **Azure App Service**.
 
-- **Trigger**: Every push to the `main` branch.
-- **Process**: Builds the Node.js application, tests, and deploys directly to **Azure Web App**.
-- **Environment**: Configured for high-performance production workloads.
+### Required GitHub Secrets
+To enable the pipeline, configure the following secrets in your GitHub repository (**Settings > Secrets and variables > Actions**):
+
+| Secret | Description |
+|--------|-------------|
+| `AZURE_CREDENTIALS` | JSON output from `az ad sp create-for-rbac` |
+| `REDIS_HOST` | Hostname of your Azure Redis Cache instance |
+| `JWT_SECRET` | Strong secret key for signing tokens |
+| `DB_PASS` | Password for the Azure Database for PostgreSQL |
+
+### Pipeline Workflow
+- **Continuous Integration**: Uses `npm ci` and caching for ultra-fast builds.
+- **Auto-Config**: Automatically synchronizes database and redis credentials with App Service via the `azure/appservice-settings` action.
+- **Production Pruning**: Strips development dependencies to minimize the application's runtime footprint.
 
 ---
 
 ## 🗄️ Database Schema
 
-The system uses a highly optimized schema for message tracking:
+The system uses a relational schema designed for real-time messaging and user persistence:
 
 ```sql
+-- Core user identity
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  username TEXT UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Message tracking with delivery receipts
 CREATE TABLE messages (
   id SERIAL PRIMARY KEY,
+  user_id INT REFERENCES users(id) ON DELETE CASCADE,
   sender TEXT NOT NULL,
   text TEXT NOT NULL,
-  time TEXT NOT NULL,
+  room TEXT NOT NULL DEFAULT 'global',
   delivered_at TIMESTAMP NULL,
   read_at TIMESTAMP NULL,
-  created_at TIMESTAMP DEFAULT NOW()
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-CREATE INDEX idx_messages_created_at ON messages(created_at);
+
+-- Interactive message reactions
+CREATE TABLE reactions (
+  id SERIAL PRIMARY KEY,
+  message_id INT REFERENCES messages(id) ON DELETE CASCADE,
+  user_id INT REFERENCES users(id) ON DELETE CASCADE,
+  emoji TEXT NOT NULL,
+  UNIQUE(message_id, user_id, emoji)
+);
 ```
 
 ---
