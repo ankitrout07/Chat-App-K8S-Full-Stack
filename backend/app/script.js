@@ -17,6 +17,18 @@ const themes = {
     solar: { 
         '--bg-main': '#002b36', '--panel': 'rgba(7, 54, 66, 0.8)', '--text-main': '#839496', 
         '--accent': '#b58900', '--bubble-me': '#b58900', '--bubble-them': 'rgba(7, 54, 66, 1)' 
+    },
+    cyberpunk: {
+        '--bg-main': '#0c001a', '--panel': 'rgba(20, 0, 40, 0.7)', '--text-main': '#00ffcc', 
+        '--accent': '#ff00ff', '--bubble-me': '#ff00ff', '--bubble-them': 'rgba(40, 0, 80, 0.8)'
+    },
+    space: {
+        '--bg-main': '#000000', '--panel': 'rgba(10, 10, 20, 0.8)', '--text-main': '#ffffff', 
+        '--accent': '#0ea5e9', '--bubble-me': '#0ea5e9', '--bubble-them': 'rgba(20, 20, 30, 1)'
+    },
+    emerald: {
+        '--bg-main': '#01160a', '--panel': 'rgba(2, 40, 20, 0.7)', '--text-main': '#dcfce7', 
+        '--accent': '#10b981', '--bubble-me': '#10b981', '--bubble-them': 'rgba(5, 50, 30, 0.8)'
     }
 };
 
