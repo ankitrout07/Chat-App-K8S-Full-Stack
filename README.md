@@ -1,26 +1,42 @@
-# TunnelPro: Quantum Chat & Observability Platform
+# TunnelPro: Quantum Chat & ChatOps Platform
 
-A premium, full-stack chat application with real-time observability, built for modern cloud-native environments. Featuring a "Quantum" glassmorphism UI, a real-time monitoring dashboard, and seamless Kubernetes/Azure integration.
+A premium, full-stack chat application with real-time observability and integrated ChatOps, built for modern cloud-native environments. Featuring a "Quantum" glassmorphism UI, dynamic group channels, and a powerful diagnostic bot.
 
 ## 🎯 Core Features
 
-### 💬 Quantum Chat Interface
-- **Real-time Messaging**: Powered by Socket.IO for sub-millisecond latency.
-- **Message Persistence**: Robust PostgreSQL backend for history and metadata.
+### 💬 Quantum Chat & Channels
+- **Real-time Messaging**: Powered by Socket.IO with room-based scoping for privacy and performance.
+- **Dynamic Group Channels**: Create, join, and manage custom chat rooms (e.g., `#dev-ops`, `#k8s-logs`).
+- **Relational Persistence**: Messages are linked to groups and users in PostgreSQL.
 - **Premium UI**: Sleek glassmorphism design with Dark, Light, and Solar themes.
 - **Rich Interaction**: Typing indicators, read receipts, and delivery tracking.
-- **Advanced Management**: Message search, deletion, and infinite scrolling.
+
+### 🤖 ChatOps TunnelBot
+- **Slash Commands**: Manage and monitor your infrastructure directly from the chat.
+- **Live Diagnostics**: Real-time health checks for PostgreSQL and Redis.
+- **Resource Monitoring**: Instant insights into server memory, uptime, and active sessions.
+- **Ephemeral Responses**: Bot output stays in the channel but is NOT saved to the DB, keeping history clean.
 
 ### 📊 Fortress Monitoring Dashboard
-- **Real-time Observability**: Live cluster metrics and pod status tracking.
-- **Scaling Detection**: Visual indicators for HPA (Horizontal Pod Autoscaler) activity.
-- **Cluster Insights**: Integrated view of connection health and system performance.
+- **Real-time Observability**: Live cluster metrics and system performance tracking.
+- **Scaling Detection**: Visual indicators for connection health and pod activity.
+- **Integrated Insights**: One-click access to system logs and architecture diagrams.
 
-### 🏗 Infrastructure & DevOps
-- **Cloud Native**: Designed for Kubernetes (AKS) and Azure App Service.
-- **CI/CD Ready**: Automated GitHub Actions pipeline for Azure deployments.
-- **High Availability**: Redis adapter support for horizontal Socket.IO scaling.
-- **Operational Excellence**: Comprehensive `Makefile` for streamlined development.
+---
+
+## 🤖 Bot Commands (ChatOps)
+
+| Command | Description |
+|:---|:---|
+| `/help` | List all available bot commands |
+| `/db-health` | **Live PostgreSQL Check**: DB size, latency, and row counts |
+| `/redis-health` | **Live Redis Check**: Pub/Sub mesh response and latency |
+| `/stats` | **System Metrics**: RSS/Heap memory, active sockets, and Node info |
+| `/deploy-status`| **Environment Info**: Platform, port, and PID details |
+| `/uptime` | Current server uptime |
+| `/users` | List all currently online users and their IPs |
+| `/groups` | List all available channels and their creators |
+| `/whoami` | Show your current session and connection details |
 
 ---
 
@@ -29,8 +45,8 @@ A premium, full-stack chat application with real-time observability, built for m
 ```text
 Chat-App-K8S-Full-Stack/
 ├── backend/
-│   ├── app/                # Frontend (HTML/CSS/JS)
-│   ├── server.js           # Express + Socket.IO Backend
+│   ├── app/                # Frontend (Quantum UI: HTML/CSS/JS)
+│   ├── server.js           # Node.js + Socket.IO + ChatOps Bot Engine
 │   ├── Dockerfile          # App Containerization
 │   └── package.json        # Node.js Dependencies
 ├── k8s-manifests/
@@ -50,8 +66,7 @@ Chat-App-K8S-Full-Stack/
 
 ### 1. Prerequisites
 - **Node.js** (v24+)
-- **PostgreSQL** & **Redis** (Local or via Docker)
-- **Make** (Optional, but recommended)
+- **PostgreSQL** & **Redis** (The app will automatically use **In-Memory Fallback** if these are unavailable).
 
 ### 2. Setup & Run
 Using the provided `Makefile`:
@@ -60,10 +75,7 @@ Using the provided `Makefile`:
 # 1. Install dependencies
 make install
 
-# 2. Initialize Database (Make sure PostgreSQL is running)
-make db-init
-
-# 3. Launch the application
+# 2. Launch the application
 make run
 ```
 
@@ -74,60 +86,9 @@ Open **http://localhost:3000** in your browser.
 
 ---
 
-## 🛠 Operations (Makefile)
-
-| Command | Description |
-|---------|-------------|
-| `make install` | Install all backend dependencies |
-| `make run` | Start the local development server |
-| `make db-init` | Initialize PostgreSQL schema |
-| `make docker-build` | Build the application container image |
-| `make k8s-deploy` | Apply all Kubernetes manifests to the cluster |
-| `make k8s-status` | Check health of K8S pods and services |
-| `make k8s-logs` | Stream live application logs |
-| `make k8s-proxy` | Port-forward the chat service to localhost:3000 |
-
----
-
-## ☸️ Kubernetes Deployment (AKS)
-
-1. **Configure Context**: Ensure `kubectl` is pointed to your cluster.
-2. **Deploy Stack**:
-   ```bash
-   make k8s-deploy
-   ```
-3. **Verify**:
-   ```bash
-   make k8s-status
-   ```
-4. **Access**: Use the Ingress controller or run `make k8s-proxy`.
-
----
-
-## 🚀 CI/CD Pipeline
-
-The project includes a robust GitHub Actions workflow for automated deployment to **Azure App Service**.
-
-### Required GitHub Secrets
-To enable the pipeline, configure the following secrets in your GitHub repository (**Settings > Secrets and variables > Actions**):
-
-| Secret | Description |
-|--------|-------------|
-| `AZURE_CREDENTIALS` | JSON output from `az ad sp create-for-rbac` |
-| `REDIS_HOST` | Hostname of your Azure Redis Cache instance |
-| `JWT_SECRET` | Strong secret key for signing tokens |
-| `DB_PASS` | Password for the Azure Database for PostgreSQL |
-
-### Pipeline Workflow
-- **Continuous Integration**: Uses `npm ci` and caching for ultra-fast builds.
-- **Auto-Config**: Automatically synchronizes database and redis credentials with App Service via the `azure/appservice-settings` action.
-- **Production Pruning**: Strips development dependencies to minimize the application's runtime footprint.
-
----
-
 ## 🗄️ Database Schema
 
-The system uses a relational schema designed for real-time messaging and user persistence:
+The system uses a relational schema with automatic migrations for room-based messaging:
 
 ```sql
 -- Core user identity
@@ -138,25 +99,25 @@ CREATE TABLE users (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Message tracking with delivery receipts
+-- Channels (Groups)
+CREATE TABLE groups (
+  id SERIAL PRIMARY KEY,
+  name TEXT UNIQUE NOT NULL,
+  created_by TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Messages with relational group linkage
 CREATE TABLE messages (
   id SERIAL PRIMARY KEY,
   user_id INT REFERENCES users(id) ON DELETE CASCADE,
   sender TEXT NOT NULL,
   text TEXT NOT NULL,
-  room TEXT NOT NULL DEFAULT 'global',
+  room TEXT NOT NULL DEFAULT 'general',
+  group_id INT REFERENCES groups(id) ON DELETE CASCADE,
   delivered_at TIMESTAMP NULL,
   read_at TIMESTAMP NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Interactive message reactions
-CREATE TABLE reactions (
-  id SERIAL PRIMARY KEY,
-  message_id INT REFERENCES messages(id) ON DELETE CASCADE,
-  user_id INT REFERENCES users(id) ON DELETE CASCADE,
-  emoji TEXT NOT NULL,
-  UNIQUE(message_id, user_id, emoji)
 );
 ```
 
