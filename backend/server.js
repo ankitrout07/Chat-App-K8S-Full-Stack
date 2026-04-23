@@ -305,6 +305,176 @@ io.use((socket, next) => {
 // Presence tracking (userId -> set of socketIds)
 const onlineUsers = new Map();
 
+// ─────────────────────────────────────────────────
+// 🤖 CHATOPS BOT ENGINE
+// ─────────────────────────────────────────────────
+const BOT_NAME = 'TunnelBot';
+const BOT_COMMANDS = {
+    '/help': {
+        description: 'List all available bot commands',
+        handler: async () => {
+            const lines = Object.entries(BOT_COMMANDS)
+                .map(([cmd, meta]) => `\`${cmd}\` — ${meta.description}`)
+                .join('\n');
+            return `**📖 Available Commands**\n${lines}`;
+        }
+    },
+    '/ping': {
+        description: 'Test bot latency',
+        handler: async () => {
+            const start = Date.now();
+            return `🏓 Pong! Latency: **${Date.now() - start}ms** | Server time: ${new Date().toISOString()}`;
+        }
+    },
+    '/uptime': {
+        description: 'Show server uptime',
+        handler: async () => {
+            const secs = Math.floor(process.uptime());
+            const h = Math.floor(secs / 3600);
+            const m = Math.floor((secs % 3600) / 60);
+            const s = secs % 60;
+            return `⏱️ **Server Uptime:** ${h}h ${m}m ${s}s`;
+        }
+    },
+    '/stats': {
+        description: 'Show real-time system resource usage',
+        handler: async () => {
+            const mem = process.memoryUsage();
+            return [
+                '📊 **System Resources**',
+                `• RSS Memory: **${(mem.rss / 1024 / 1024).toFixed(1)} MB**`,
+                `• Heap Used: **${(mem.heapUsed / 1024 / 1024).toFixed(1)} MB** / ${(mem.heapTotal / 1024 / 1024).toFixed(1)} MB`,
+                `• External: **${(mem.external / 1024 / 1024).toFixed(2)} MB**`,
+                `• Live Sockets: **${io.engine.clientsCount}**`,
+                `• Online Users: **${onlineUsers.size}**`,
+                `• Node.js: **${process.version}**`,
+                `• Platform: **${process.platform} ${process.arch}**`
+            ].join('\n');
+        }
+    },
+    '/db-health': {
+        description: 'Run a PostgreSQL health check',
+        handler: async () => {
+            try {
+                const start = Date.now();
+                const res = await db.query('SELECT NOW() as time, current_database() as name, pg_size_pretty(pg_database_size(current_database())) as size');
+                const latency = Date.now() - start;
+                const row = res.rows[0];
+                const msgCount = await db.query('SELECT COUNT(*) FROM messages');
+                const userCount = await db.query('SELECT COUNT(*) FROM users');
+                const groupCount = await db.query('SELECT COUNT(*) FROM groups');
+                return [
+                    '🗄️ **Database Health: HEALTHY** ✅',
+                    `• DB Name: **${row.name}**`,
+                    `• DB Size: **${row.size}**`,
+                    `• Query Latency: **${latency}ms**`,
+                    `• Server Time: ${row.time}`,
+                    `• Total Messages: **${msgCount.rows[0].count}**`,
+                    `• Total Users: **${userCount.rows[0].count}**`,
+                    `• Total Groups: **${groupCount.rows[0].count}**`
+                ].join('\n');
+            } catch (err) {
+                return `🗄️ **Database Health: DEGRADED** ❌\n• Error: \`${err.message}\``;
+            }
+        }
+    },
+    '/redis-health': {
+        description: 'Check Redis Pub/Sub mesh status',
+        handler: async () => {
+            try {
+                const start = Date.now();
+                const pong = await redisClient.ping();
+                const latency = Date.now() - start;
+                return [
+                    '⚡ **Redis Health: CONNECTED** ✅',
+                    `• Response: **${pong}**`,
+                    `• Latency: **${latency}ms**`,
+                    `• Host: \`${process.env.REDIS_HOST || 'redis-service'}:${process.env.REDIS_PORT || 6379}\``
+                ].join('\n');
+            } catch (err) {
+                return `⚡ **Redis Health: DISCONNECTED** ❌\n• Error: \`${err.message}\``;
+            }
+        }
+    },
+    '/deploy-status': {
+        description: 'Show current deployment environment info',
+        handler: async () => {
+            const env = process.env.NODE_ENV || 'development';
+            const dbHost = process.env.DB_HOST || 'db-service';
+            const redisHost = process.env.REDIS_HOST || 'redis-service';
+            const port = process.env.PORT || 3000;
+            const hasAzure = !!process.env.DATABASE_URL;
+            return [
+                '🚀 **Deployment Status**',
+                `• Environment: **${env.toUpperCase()}**`,
+                `• Platform: **${hasAzure ? 'Azure App Service' : 'Kubernetes / Local'}**`,
+                `• App Port: **${port}**`,
+                `• DB Host: \`${dbHost}\``,
+                `• Redis Host: \`${redisHost}\``,
+                `• SSL: **${process.env.DATABASE_URL ? 'Enabled' : 'Disabled'}**`,
+                `• Server PID: **${process.pid}**`,
+                `• Memory Limit: **${(process.resourceUsage?.()?.maxRSS / 1024).toFixed(0) || 'N/A'} MB**`
+            ].join('\n');
+        }
+    },
+    '/users': {
+        description: 'List currently online users',
+        handler: async () => {
+            if (onlineUsers.size === 0) return '👤 No users currently online.';
+            const lines = Array.from(onlineUsers.entries())
+                .map(([id, data]) => `• **${data.username}** — IP: \`${data.ip}\` (${data.sockets.size} session${data.sockets.size > 1 ? 's' : ''})`)
+                .join('\n');
+            return `👥 **Online Users (${onlineUsers.size})**\n${lines}`;
+        }
+    },
+    '/groups': {
+        description: 'List all available channels',
+        handler: async () => {
+            try {
+                const res = await db.query('SELECT name, created_by, created_at FROM groups ORDER BY created_at ASC');
+                if (res.rows.length === 0) return '📁 No channels found.';
+                const lines = res.rows.map(g => `• **#${g.name}** — created by \`${g.created_by}\``).join('\n');
+                return `📁 **Channels (${res.rows.length})**\n${lines}`;
+            } catch (err) {
+                return `📁 Channel list unavailable: \`${err.message}\``;
+            }
+        }
+    },
+    '/whoami': {
+        description: 'Show your session info',
+        handler: async (socket) => {
+            const userData = onlineUsers.get(socket.user.id);
+            return [
+                '🪪 **Your Session**',
+                `• Username: **${socket.user.username}**`,
+                `• User ID: **${socket.user.id}**`,
+                `• Socket ID: \`${socket.id}\``,
+                `• IP: \`${userData?.ip || 'unknown'}\``,
+                `• Active Sessions: **${userData?.sockets.size || 1}**`
+            ].join('\n');
+        }
+    }
+};
+
+// Execute a bot command and return the response payload
+async function executeBotCommand(commandText, socket, room) {
+    const parts = commandText.trim().split(/\s+/);
+    const cmd = parts[0].toLowerCase();
+    const args = parts.slice(1);
+
+    const command = BOT_COMMANDS[cmd];
+    if (!command) {
+        return `❓ Unknown command: \`${cmd}\`\nType \`/help\` to see available commands.`;
+    }
+
+    try {
+        return await command.handler(socket, args, room);
+    } catch (err) {
+        console.error(`Bot command error [${cmd}]:`, err);
+        return `⚠️ Command \`${cmd}\` failed: \`${err.message}\``;
+    }
+}
+
 // Emit real-time system stats every 3 seconds
 setInterval(async () => {
     const stats = {
@@ -386,9 +556,42 @@ io.on('connection', (socket) => {
         } catch (err) { console.error(err); }
     });
 
-    // new chat message - insert into db
+    // new chat message - insert into db (with ChatOps bot interception)
     socket.on('chat message', async (data) => {
         const room = data.room || 'general';
+        const text = (data.text || '').trim();
+
+        // 🤖 BOT INTERCEPTION: If the message starts with '/', route to the bot
+        if (text.startsWith('/')) {
+            console.log(`🤖 Bot command from ${socket.user.username}: ${text}`);
+
+            // Show the user's command to the room first
+            io.to(room).emit('chat message', {
+                sender: socket.user.username,
+                userId: socket.user.id,
+                text: text,
+                time: data.time || new Date().toLocaleTimeString(),
+                room: room,
+                id: Date.now(),
+                isCommand: true,
+                ephemeral: true
+            });
+
+            // Execute the command and post the bot's response
+            const botResponse = await executeBotCommand(text, socket, room);
+            io.to(room).emit('chat message', {
+                sender: BOT_NAME,
+                userId: null,
+                text: botResponse,
+                time: new Date().toLocaleTimeString(),
+                room: room,
+                id: Date.now() + 1,
+                isBot: true,
+                ephemeral: true
+            });
+            return; // Don't persist bot commands to DB
+        }
+
         const payload = {
             sender: socket.user.username,
             userId: socket.user.id,

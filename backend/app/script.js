@@ -242,6 +242,8 @@ function parseMessageContent(text) {
         }
         return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="chat-link">${url}</a>`;
     });
+    // Convert newlines to <br> for bot multi-line responses
+    html = html.replace(/\n/g, '<br>');
     return html;
 }
 
@@ -378,41 +380,72 @@ function prependMessage(data) {
     if (emptyState) emptyState.style.display = 'none';
 
     const isMe = data.sender === currentUser;
+    const isBot = data.isBot || data.sender === 'TunnelBot';
+    const isCommand = data.isCommand;
     const msgEl = document.createElement('div');
     msgEl.id = 'msg-' + data.id;
     msgEl.dataset.msgId = data.id;
-    msgEl.className = `flex gap-4 ${isMe ? 'flex-row-reverse' : 'flex-row'} group message-anim`;
-    
-    const avatarColor = isMe ? 'var(--accent)' : '#1e293b';
-    
-    msgEl.innerHTML = `
-        <div class="avatar shadow-lg border border-white/5" style="background:${avatarColor}">${data.sender[0].toUpperCase()}</div>
-        <div class="relative flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[75%]">
-            <div class="flex items-center gap-3 mb-1 px-1">
-                ${!isMe ? `<span class="text-[10px] font-black uppercase text-indigo-400 tracking-widest">${data.sender}</span>` : ''}
-                <span class="text-[9px] font-bold opacity-30 text-white uppercase tracking-tighter">${data.time}</span>
-            </div>
-            <div class="p-4 rounded-[1.5rem] shadow-xl ${isMe ? 'rounded-tr-none text-white' : 'rounded-tl-none'} glass border border-white/[0.03] transition-all" 
-                 style="${isMe ? 'background:var(--bubble-me); border-color:rgba(255,255,255,0.1)' : 'background:var(--bubble-them)'}">
-                <p class="text-sm leading-relaxed font-medium">${parseMessageContent(data.text)}</p>
-                ${data.ephemeral ? '<p class="text-[8px] italic opacity-50 mt-1">Ephemeral - Not saved to archive</p>' : ''}
-            </div>
-            <div class="reactions flex flex-wrap gap-1.5 mt-2">${renderReactions(data.id, data.reactions)}</div>
-            <div class="status text-[9px] text-muted mt-2 flex items-center justify-between w-full px-1">
-                <div class="flex items-center gap-1.5">${isMe ? SVGS.sent : ''}</div>
-                <div class="hidden group-hover:flex gap-3 items-center ml-4 bg-black/40 backdrop-blur-md rounded-full px-3 py-1.5 border border-white/5">
-                    <button onclick="addReaction(${data.id}, '👍')" class="hover:scale-125 transition-transform">👍</button>
-                    <button onclick="addReaction(${data.id}, '❤️')" class="hover:scale-125 transition-transform">❤️</button>
-                    <button onclick="addReaction(${data.id}, '🔥')" class="hover:scale-125 transition-transform">🔥</button>
-                    ${isMe ? `<button onclick="deleteMessage(${data.id})" class="hover:text-red-500 transition-colors ml-1"><i class="fas fa-trash-alt text-[10px]"></i></button>` : ''}
+
+    if (isBot) {
+        msgEl.className = 'flex gap-4 flex-row group message-anim';
+        msgEl.innerHTML = `
+            <div class="avatar bot-avatar shadow-lg border border-cyan-500/30"><i class="fas fa-robot"></i></div>
+            <div class="relative flex flex-col items-start max-w-[85%]">
+                <div class="flex items-center gap-3 mb-1 px-1">
+                    <span class="text-[10px] font-black uppercase text-cyan-400 tracking-widest">TunnelBot</span>
+                    <span class="bot-badge">BOT</span>
+                    <span class="text-[9px] font-bold opacity-30 text-white uppercase tracking-tighter">${data.time}</span>
                 </div>
-            </div>
-        </div>`;
+                <div class="p-5 rounded-[1.5rem] rounded-tl-none shadow-xl bot-bubble border border-cyan-500/10">
+                    <p class="text-sm leading-relaxed font-medium">${parseMessageContent(data.text)}</p>
+                </div>
+            </div>`;
+    } else if (isCommand) {
+        msgEl.className = `flex gap-4 flex-row-reverse group message-anim`;
+        msgEl.innerHTML = `
+            <div class="avatar shadow-lg border border-white/5" style="background:var(--accent)">${data.sender[0].toUpperCase()}</div>
+            <div class="relative flex flex-col items-end max-w-[75%]">
+                <div class="flex items-center gap-3 mb-1 px-1">
+                    <span class="text-[9px] font-bold opacity-30 text-white uppercase tracking-tighter">${data.time}</span>
+                </div>
+                <div class="p-3 px-5 rounded-[1.5rem] rounded-tr-none shadow-xl command-bubble border border-white/[0.05]">
+                    <p class="text-sm leading-relaxed font-mono font-medium"><span class="text-indigo-400">&gt;</span> ${parseMessageContent(data.text)}</p>
+                </div>
+            </div>`;
+    } else {
+        const avatarColor = isMe ? 'var(--accent)' : '#1e293b';
+        msgEl.className = `flex gap-4 ${isMe ? 'flex-row-reverse' : 'flex-row'} group message-anim`;
+        msgEl.innerHTML = `
+            <div class="avatar shadow-lg border border-white/5" style="background:${avatarColor}">${data.sender[0].toUpperCase()}</div>
+            <div class="relative flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[75%]">
+                <div class="flex items-center gap-3 mb-1 px-1">
+                    ${!isMe ? `<span class="text-[10px] font-black uppercase text-indigo-400 tracking-widest">${data.sender}</span>` : ''}
+                    <span class="text-[9px] font-bold opacity-30 text-white uppercase tracking-tighter">${data.time}</span>
+                </div>
+                <div class="p-4 rounded-[1.5rem] shadow-xl ${isMe ? 'rounded-tr-none text-white' : 'rounded-tl-none'} glass border border-white/[0.03] transition-all" 
+                     style="${isMe ? 'background:var(--bubble-me); border-color:rgba(255,255,255,0.1)' : 'background:var(--bubble-them)'}">
+                    <p class="text-sm leading-relaxed font-medium">${parseMessageContent(data.text)}</p>
+                    ${data.ephemeral ? '<p class="text-[8px] italic opacity-50 mt-1">Ephemeral - Not saved to archive</p>' : ''}
+                </div>
+                <div class="reactions flex flex-wrap gap-1.5 mt-2">${renderReactions(data.id, data.reactions)}</div>
+                <div class="status text-[9px] text-muted mt-2 flex items-center justify-between w-full px-1">
+                    <div class="flex items-center gap-1.5">${isMe ? SVGS.sent : ''}</div>
+                    <div class="hidden group-hover:flex gap-3 items-center ml-4 bg-black/40 backdrop-blur-md rounded-full px-3 py-1.5 border border-white/5">
+                        <button onclick="addReaction(${data.id}, '👍')" class="hover:scale-125 transition-transform">👍</button>
+                        <button onclick="addReaction(${data.id}, '❤️')" class="hover:scale-125 transition-transform">❤️</button>
+                        <button onclick="addReaction(${data.id}, '🔥')" class="hover:scale-125 transition-transform">🔥</button>
+                        ${isMe ? `<button onclick="deleteMessage(${data.id})" class="hover:text-red-500 transition-colors ml-1"><i class="fas fa-trash-alt text-[10px]"></i></button>` : ''}
+                    </div>
+                </div>
+            </div>`;
+    }
     messages.prepend(msgEl);
-    observeMessage(msgEl);
-    updateStatusFromData(msgEl, data);
-    if (!isMe) {
-        socket.emit('message delivered', data.id);
+    if (!isBot && !isCommand) {
+        observeMessage(msgEl);
+        updateStatusFromData(msgEl, data);
+        if (!isMe) {
+            socket.emit('message delivered', data.id);
+        }
     }
     updateMessageCount();
 }
@@ -487,39 +520,79 @@ socket.on('chat message', (data) => {
     if (emptyState) emptyState.style.display = 'none';
 
     const isMe = data.sender === currentUser;
+    const isBot = data.isBot || data.sender === 'TunnelBot';
+    const isCommand = data.isCommand;
     const msgEl = document.createElement('div');
     msgEl.id = 'msg-' + data.id;
     msgEl.dataset.msgId = data.id;
-    msgEl.className = `flex gap-4 ${isMe ? 'flex-row-reverse' : 'flex-row'} group message-anim`;
-    
-    const avatarColor = isMe ? 'var(--accent)' : '#1e293b';
-    
-    msgEl.innerHTML = `
-        <div class="avatar shadow-lg border border-white/5" style="background:${avatarColor}">${data.sender[0].toUpperCase()}</div>
-        <div class="relative flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[75%]">
-            <div class="flex items-center gap-3 mb-1 px-1">
-                ${!isMe ? `<span class="text-[10px] font-black uppercase text-indigo-400 tracking-widest">${data.sender}</span>` : ''}
-                <span class="text-[9px] font-bold opacity-30 text-white uppercase tracking-tighter">${data.time}</span>
-            </div>
-            <div class="p-4 rounded-[1.5rem] shadow-xl ${isMe ? 'rounded-tr-none text-white' : 'rounded-tl-none'} glass border border-white/[0.03] transition-all" 
-                 style="${isMe ? 'background:var(--bubble-me); border-color:rgba(255,255,255,0.1)' : 'background:var(--bubble-them)'}">
-                <p class="text-sm leading-relaxed font-medium">${parseMessageContent(data.text)}</p>
-                ${data.ephemeral ? '<p class="text-[8px] italic opacity-50 mt-1">Ephemeral - Not saved to archive</p>' : ''}
-            </div>
-            <div class="reactions flex flex-wrap gap-1.5 mt-2">${renderReactions(data.id, data.reactions)}</div>
-            <div class="status text-[9px] text-muted mt-2 flex items-center justify-between w-full px-1">
-                <div class="flex items-center gap-1.5">${isMe ? SVGS.sent : ''}</div>
-                <div class="hidden group-hover:flex gap-3 items-center ml-4 bg-black/40 backdrop-blur-md rounded-full px-3 py-1.5 border border-white/5">
-                    <button onclick="addReaction(${data.id}, '👍')" class="hover:scale-125 transition-transform">👍</button>
-                    <button onclick="addReaction(${data.id}, '❤️')" class="hover:scale-125 transition-transform">❤️</button>
-                    <button onclick="addReaction(${data.id}, '🔥')" class="hover:scale-125 transition-transform">🔥</button>
-                    ${isMe ? `<button onclick="deleteMessage(${data.id})" class="hover:text-red-500 transition-colors ml-1"><i class="fas fa-trash-alt text-[10px]"></i></button>` : ''}
+
+    if (isBot) {
+        // Bot response with unique styling
+        msgEl.className = 'flex gap-4 flex-row group message-anim';
+        msgEl.innerHTML = `
+            <div class="avatar bot-avatar shadow-lg border border-cyan-500/30"><i class="fas fa-robot"></i></div>
+            <div class="relative flex flex-col items-start max-w-[85%]">
+                <div class="flex items-center gap-3 mb-1 px-1">
+                    <span class="text-[10px] font-black uppercase text-cyan-400 tracking-widest">TunnelBot</span>
+                    <span class="bot-badge">BOT</span>
+                    <span class="text-[9px] font-bold opacity-30 text-white uppercase tracking-tighter">${data.time}</span>
                 </div>
-            </div>
-        </div>`;
+                <div class="p-5 rounded-[1.5rem] rounded-tl-none shadow-xl bot-bubble border border-cyan-500/10">
+                    <p class="text-sm leading-relaxed font-medium">${parseMessageContent(data.text)}</p>
+                </div>
+            </div>`;
+    } else if (isCommand) {
+        // User's slash command (terminal style, right-aligned)
+        msgEl.className = `flex gap-4 flex-row-reverse group message-anim`;
+        msgEl.innerHTML = `
+            <div class="avatar shadow-lg border border-white/5" style="background:var(--accent)">${data.sender[0].toUpperCase()}</div>
+            <div class="relative flex flex-col items-end max-w-[75%]">
+                <div class="flex items-center gap-3 mb-1 px-1">
+                    <span class="text-[9px] font-bold opacity-30 text-white uppercase tracking-tighter">${data.time}</span>
+                </div>
+                <div class="p-3 px-5 rounded-[1.5rem] rounded-tr-none shadow-xl command-bubble border border-white/[0.05]">
+                    <p class="text-sm leading-relaxed font-mono font-medium"><span class="text-indigo-400">&gt;</span> ${parseMessageContent(data.text)}</p>
+                </div>
+            </div>`;
+    } else {
+        // Regular user message
+        const avatarColor = isMe ? 'var(--accent)' : '#1e293b';
+        msgEl.className = `flex gap-4 ${isMe ? 'flex-row-reverse' : 'flex-row'} group message-anim`;
+        msgEl.innerHTML = `
+            <div class="avatar shadow-lg border border-white/5" style="background:${avatarColor}">${data.sender[0].toUpperCase()}</div>
+            <div class="relative flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[75%]">
+                <div class="flex items-center gap-3 mb-1 px-1">
+                    ${!isMe ? `<span class="text-[10px] font-black uppercase text-indigo-400 tracking-widest">${data.sender}</span>` : ''}
+                    <span class="text-[9px] font-bold opacity-30 text-white uppercase tracking-tighter">${data.time}</span>
+                </div>
+                <div class="p-4 rounded-[1.5rem] shadow-xl ${isMe ? 'rounded-tr-none text-white' : 'rounded-tl-none'} glass border border-white/[0.03] transition-all" 
+                     style="${isMe ? 'background:var(--bubble-me); border-color:rgba(255,255,255,0.1)' : 'background:var(--bubble-them)'}">
+                    <p class="text-sm leading-relaxed font-medium">${parseMessageContent(data.text)}</p>
+                    ${data.ephemeral ? '<p class="text-[8px] italic opacity-50 mt-1">Ephemeral - Not saved to archive</p>' : ''}
+                </div>
+                <div class="reactions flex flex-wrap gap-1.5 mt-2">${renderReactions(data.id, data.reactions)}</div>
+                <div class="status text-[9px] text-muted mt-2 flex items-center justify-between w-full px-1">
+                    <div class="flex items-center gap-1.5">${isMe ? SVGS.sent : ''}</div>
+                    <div class="hidden group-hover:flex gap-3 items-center ml-4 bg-black/40 backdrop-blur-md rounded-full px-3 py-1.5 border border-white/5">
+                        <button onclick="addReaction(${data.id}, '👍')" class="hover:scale-125 transition-transform">👍</button>
+                        <button onclick="addReaction(${data.id}, '❤️')" class="hover:scale-125 transition-transform">❤️</button>
+                        <button onclick="addReaction(${data.id}, '🔥')" class="hover:scale-125 transition-transform">🔥</button>
+                        ${isMe ? `<button onclick="deleteMessage(${data.id})" class="hover:text-red-500 transition-colors ml-1"><i class="fas fa-trash-alt text-[10px]"></i></button>` : ''}
+                    </div>
+                </div>
+            </div>`;
+    }
+
     messages.appendChild(msgEl);
-    if (!isMe) popSound.play().catch(e => {});
-    observeMessage(msgEl);
+    if (isBot) {
+        // Play a subtle notification sound for bot responses
+        popSound.play().catch(e => {});
+    } else if (!isMe && !isCommand) {
+        popSound.play().catch(e => {});
+    }
+    if (!isBot && !isCommand) {
+        observeMessage(msgEl);
+    }
     messages.scrollTop = messages.scrollHeight;
     updateMessageCount();
 });
