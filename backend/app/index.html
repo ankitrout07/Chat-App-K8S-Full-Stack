@@ -116,10 +116,97 @@
             </footer>
         </section>
 
-        <section id="view-arch" class="view hidden p-10 max-w-4xl mx-auto min-h-full flex flex-col justify-center">
-            <div class="panel p-8 sm:p-10 rounded-[2.5rem] shadow-2xl">
-                <h3 class="text-2xl font-black mb-6 tracking-tight"><i class="fas fa-server mr-3" style="color:var(--accent)"></i>Infrastructure Architecture</h3>
-                <p class="text-sm text-muted mb-4 leading-relaxed">● WebSockets provide duplex real-time sync with Socket.IO<br>● Redis Adapter handles Pub/Sub between K8s nodes<br>● PostgreSQL handles atomic messaging persistence<br>● Pod Health: <span class="text-emerald-500 font-bold">OPTIMAL</span></p>
+        <section id="view-arch" class="view hidden p-10 max-w-5xl mx-auto min-h-full flex flex-col justify-center">
+            <div class="panel p-10 sm:p-14 rounded-[3.5rem] shadow-2xl relative overflow-hidden">
+                <div class="flex items-center gap-4 mb-12">
+                    <div class="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 border border-indigo-500/20">
+                        <i class="fas fa-project-diagram"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-3xl font-black tracking-tighter">System Architecture</h3>
+                        <p class="text-[10px] font-black uppercase tracking-[0.3em] text-muted opacity-50">Cloud-Native Distributed Messaging Mesh</p>
+                    </div>
+                </div>
+
+                <!-- Interactive Architecture Map -->
+                <div class="relative py-10">
+                    <!-- Layer 1: Ingress -->
+                    <div class="flex justify-center mb-16">
+                        <div class="group relative px-8 py-5 rounded-2xl glass border border-white/10 hover:border-indigo-500/50 transition-all cursor-help text-center min-w-[200px]">
+                            <div class="text-[9px] font-bold text-indigo-400 uppercase tracking-widest mb-2">Layer 1: Entry</div>
+                            <div class="flex items-center justify-center gap-3">
+                                <i class="fas fa-network-wired text-xl opacity-60"></i>
+                                <span class="font-black text-sm uppercase">Global Ingress</span>
+                            </div>
+                            <div class="absolute top-full left-1/2 -translate-x-1/2 w-0.5 h-16 bg-gradient-to-b from-indigo-500/50 to-transparent"></div>
+                            <!-- Tooltip -->
+                            <div class="absolute -top-20 left-1/2 -translate-x-1/2 w-48 p-3 rounded-xl bg-bg-deep border border-white/10 opacity-0 group-hover:opacity-100 transition-all pointer-events-none z-20 text-[10px] leading-relaxed shadow-2xl">
+                                Nginx Ingress Controller handles SSL termination and traffic routing to healthy pods.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Layer 2: Application Pods -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-12 mb-16 px-10">
+                        <div class="group relative px-6 py-6 rounded-3xl bg-white/[0.02] border border-white/5 hover:border-emerald-500/40 transition-all cursor-help">
+                            <div class="flex items-center gap-4 mb-4">
+                                <div class="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400"><i class="fas fa-cubes"></i></div>
+                                <div>
+                                    <div class="font-black text-xs uppercase">Tunnel Node A</div>
+                                    <div class="text-[9px] text-emerald-500 font-bold uppercase tracking-tighter">Pod: Running</div>
+                                </div>
+                            </div>
+                            <p class="text-[10px] text-muted leading-relaxed">Handles WebSocket sessions, JWT verification, and ChatOps bot logic.</p>
+                            <!-- Connection Line -->
+                            <div class="absolute top-1/2 -right-6 w-12 h-0.5 bg-white/5 hidden md:block"></div>
+                        </div>
+
+                        <div class="group relative px-6 py-6 rounded-3xl bg-white/[0.02] border border-white/5 hover:border-emerald-500/40 transition-all cursor-help">
+                            <div class="flex items-center gap-4 mb-4">
+                                <div class="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400"><i class="fas fa-cubes"></i></div>
+                                <div>
+                                    <div class="font-black text-xs uppercase">Tunnel Node B</div>
+                                    <div class="text-[9px] text-emerald-500 font-bold uppercase tracking-tighter">Pod: Running</div>
+                                </div>
+                            </div>
+                            <p class="text-[10px] text-muted leading-relaxed">Parallel instance for HA. Scaled via Horizontal Pod Autoscaler (HPA).</p>
+                        </div>
+                    </div>
+
+                    <!-- Layer 3: Sync & Persistence -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-12">
+                        <!-- Redis -->
+                        <div class="group px-8 py-6 rounded-[2.5rem] glass-panel border border-red-500/10 hover:border-red-500/30 transition-all">
+                            <div class="flex items-center gap-4 mb-4">
+                                <div class="w-12 h-12 rounded-2xl bg-red-500/10 flex items-center justify-center text-red-400"><i class="fas fa-bolt"></i></div>
+                                <div>
+                                    <div class="font-black text-sm uppercase">Redis Pub/Sub</div>
+                                    <div class="text-[9px] text-red-500 font-bold uppercase tracking-widest">Transport Mesh</div>
+                                </div>
+                            </div>
+                            <p class="text-[10px] text-muted leading-relaxed">Synchronizes messages between pods. Ensures user on Node A can chat with user on Node B instantly.</p>
+                        </div>
+
+                        <!-- PostgreSQL -->
+                        <div class="group px-8 py-6 rounded-[2.5rem] glass-panel border border-blue-500/10 hover:border-blue-500/30 transition-all">
+                            <div class="flex items-center gap-4 mb-4">
+                                <div class="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-400"><i class="fas fa-database"></i></div>
+                                <div>
+                                    <div class="font-black text-sm uppercase">PostgreSQL</div>
+                                    <div class="text-[9px] text-blue-500 font-bold uppercase tracking-widest">Atomic Archive</div>
+                                </div>
+                            </div>
+                            <p class="text-[10px] text-muted leading-relaxed">Relational storage for users, groups, and permanent message history with ACID compliance.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-12 p-6 rounded-2xl bg-white/[0.02] border border-white/[0.05] flex items-center gap-6">
+                    <i class="fas fa-info-circle text-indigo-400 text-xl"></i>
+                    <p class="text-[10px] text-muted leading-relaxed font-medium uppercase tracking-wider">
+                        The architecture is fully <span class="text-white font-bold">stateless at the application tier</span>, allowing for seamless scaling and zero-downtime rolling updates within the Kubernetes cluster.
+                    </p>
+                </div>
             </div>
         </section>
 
