@@ -58,7 +58,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: node-app
-          path: .
+          path: ./backend
 
       - name: 🔑 Azure Login
         uses: azure/login@v2
@@ -91,6 +91,6 @@ jobs:
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           resource-group-name: ${{ env.AZURE_RESOURCE_GROUP }}
-          package: .
+          package: ./backend
           startup-command: 'node server.js'
           
