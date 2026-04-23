@@ -85,6 +85,16 @@ async function runMigrations() {
     `);
     console.log('✅ Groups table ready');
 
+    // Add preferred_theme column to users if missing
+    const themeCheck = await db.query(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_name = 'users' AND column_name = 'preferred_theme'
+    `);
+    if (themeCheck.rows.length === 0) {
+      await db.query("ALTER TABLE users ADD COLUMN preferred_theme TEXT DEFAULT 'dark'");
+      console.log('✅ Added preferred_theme column to users table');
+    }
+
     // Add group_id column to messages if it doesn't exist
     const colCheck = await db.query(`
       SELECT column_name FROM information_schema.columns
@@ -221,7 +231,7 @@ app.post('/register', async (req, res) => {
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
         const result = await db.query(
-            'INSERT INTO users (username, password_hash) VALUES ($1, $2) RETURNING id, username',
+            'INSERT INTO users (username, password_hash) VALUES ($1, $2) RETURNING id, username, preferred_theme',
             [username, hashedPassword]
         );
         res.status(201).json(result.rows[0]);
@@ -241,7 +251,7 @@ app.post('/login', async (req, res) => {
         if (!isMatch) return res.status(401).json({ error: 'Invalid credentials' });
         
         const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '24h' });
-        res.json({ token, user: { id: user.id, username: user.username } });
+        res.json({ token, user: { id: user.id, username: user.username, preferred_theme: user.preferred_theme } });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -605,6 +615,16 @@ io.on('connection', (socket) => {
         } catch (err) {
             console.error('Add Member Error:', err);
             socket.emit('error', { message: 'Failed to add member to group' });
+        }
+    });
+
+    // Handle theme persistence
+    socket.on('updateThemePreference', async ({ theme }) => {
+        try {
+            await db.query('UPDATE users SET preferred_theme = $1 WHERE id = $2', [theme, socket.user.id]);
+            console.log(`🎨 Theme updated to ${theme} for user ${socket.user.username}`);
+        } catch (err) {
+            console.error('Theme Update Error:', err);
         }
     });
 

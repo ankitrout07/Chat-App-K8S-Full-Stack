@@ -40,14 +40,25 @@ const SVGS = {
 };
 
 function applyTheme(name) {
-    const root = document.documentElement;
-    const vars = themes[name];
-    if (vars) {
-        Object.entries(vars).forEach(([key, val]) => root.style.setProperty(key, val));
-        localStorage.setItem('chat-theme', name);
-        toast(`Theme: ${name.toUpperCase()}`);
+    const themeClasses = ['theme-dark', 'theme-light', 'theme-solar', 'cyberpunk', 'space', 'emerald'].map(t => 'theme-' + t);
+    
+    // Remove existing theme classes
+    themeClasses.forEach(c => document.body.classList.remove(c));
+    
+    // Add new theme class
+    const newClass = 'theme-' + name;
+    document.body.classList.add(newClass);
+    
+    localStorage.setItem('chat-theme', name);
+    
+    // Persist to DB if logged in
+    if (authUser) {
+        socket.emit('updateThemePreference', { theme: name });
     }
+    
+    toast(`Protocol: ${name.toUpperCase()}`);
 }
+
 
 let currentUser = null;
 let authUser = JSON.parse(localStorage.getItem('tunnel_auth_user') || 'null');
@@ -77,6 +88,11 @@ function updateAuthUI() {
         document.getElementById('nav-username').innerText = authUser.username;
         document.getElementById('user-avatar-mini').innerText = authUser.username[0].toUpperCase();
         currentUser = authUser.username;
+        
+        // Restore theme from profile
+        if (authUser.preferred_theme) {
+            applyTheme(authUser.preferred_theme);
+        }
     } else {
         document.getElementById('auth-nav').classList.add('hidden');
         document.getElementById('login-btn').classList.remove('hidden');
