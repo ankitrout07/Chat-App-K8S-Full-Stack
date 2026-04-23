@@ -22,6 +22,11 @@ A premium, full-stack chat application with real-time observability and integrat
 - **Scaling Detection**: Visual indicators for connection health and pod activity.
 - **Integrated Insights**: One-click access to system logs and architecture diagrams.
 
+### ☁️ Cloud-Native Deployment
+- **Azure App Service**: Production-hardened deployment in the `centralindia` region.
+- **GitHub Actions OIDC**: Secure, secret-less authentication using Federated Identities.
+- **Node 20 (LTS)**: Standardized runtime for stability and compatibility.
+
 ---
 
 ## 🤖 Bot Commands (ChatOps)
@@ -129,6 +134,7 @@ CREATE TABLE messages (
 - [ ] Configure Azure Monitor for long-term log retention.
 - [ ] Set resource quotas for K8s namespaces.
 - [ ] Validate Redis persistence for scaling nodes.
+- [ ] Ensure `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, and `AZURE_SUBSCRIPTION_ID` are set in GitHub Secrets for App Service OIDC deployment.
 
 ---
 

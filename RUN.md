@@ -74,13 +74,30 @@ Once launched, verify the following core features:
 
 ---
 
-## ☁️ Production Deployment (Azure VM)
+---
 
-For a standard Linux VM deployment:
-1. Clone the repository.
-2. Run `make install`.
-3. Open port `3000` in your Azure NSG.
-4. Run `make run`.
+## ☁️ Production: Azure App Service (OIDC)
+
+TunnelPro is optimized for **Azure App Service (Linux)** using a secure, secret-less GitHub Actions workflow.
+
+### 1. Cloud Provisioning
+The application is validated for the **Central India** region. Ensure your App Service Plan and Web App are provisioned:
+- **Resource Group**: `Dev-Test-RG`
+- **App Service Plan**: `TunnelPlan` (Linux/B1+)
+- **Web App**: `chat-app-tunnel` (Node 20 LTS)
+
+### 2. Secure Authentication (OIDC)
+Instead of long-lived secrets, we use **GitHub Actions OIDC**:
+1. Create a Federated Identity for your GitHub Repository in the Azure Service Principal (`0f49d723-c9ed-47db-bea0-beb84f5c0b67`).
+2. Add the following **Repository Secrets** in GitHub:
+   - `AZURE_CLIENT_ID`: The Application (client) ID.
+   - `AZURE_TENANT_ID`: The Directory (tenant) ID.
+   - `AZURE_SUBSCRIPTION_ID`: Your Azure Subscription ID.
+
+### 3. Deploy
+The deployment is automated via `.github/workflows/main_chat-app-tunnel.yml`. 
+- **Trigger**: Any push to the `main` branch.
+- **Runtime**: Automatically standardized to **Node 20 (LTS)** for production stability.
 
 ---
 
