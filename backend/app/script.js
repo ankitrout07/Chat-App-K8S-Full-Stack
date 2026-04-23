@@ -66,6 +66,7 @@ let authToken = localStorage.getItem('tunnel_auth_token') || null;
 let typingTimeout;
 let monitoringInterval;
 let authMode = 'login'; 
+const GOOGLE_CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"; // User should replace this
 
 const popSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3');
 popSound.volume = 0.5;
@@ -86,7 +87,15 @@ function updateAuthUI() {
         document.getElementById('auth-nav').classList.remove('hidden');
         document.getElementById('login-btn').classList.add('hidden');
         document.getElementById('nav-username').innerText = authUser.username;
-        document.getElementById('user-avatar-mini').innerText = authUser.username[0].toUpperCase();
+        
+        const avatarEl = document.getElementById('user-avatar-mini');
+        if (authUser.avatar_url) {
+            avatarEl.innerHTML = `<img src="${authUser.avatar_url}" class="w-full h-full rounded-xl object-cover">`;
+        } else {
+            avatarEl.innerText = authUser.username[0].toUpperCase();
+            avatarEl.style.background = 'var(--accent)';
+        }
+        
         currentUser = authUser.username;
         
         // Restore theme from profile
@@ -108,6 +117,50 @@ function logout() {
     updateAuthUI();
     toast('Logged out');
     fetchAndRenderUsers();
+}
+
+// --- GOOGLE AUTH ---
+function initGoogleAuth() {
+    if (typeof google === 'undefined') return setTimeout(initGoogleAuth, 100);
+    
+    google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: handleGoogleCallback
+    });
+    
+    google.accounts.id.renderButton(
+        document.getElementById("google-login-btn"),
+        { theme: "outline", size: "large", width: 320 }
+    );
+}
+
+async function handleGoogleCallback(response) {
+    try {
+        const res = await fetch('/auth/google', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ credential: response.credential })
+        });
+        
+        const data = await res.json();
+        if (res.ok) {
+            localStorage.setItem('tunnel_auth_token', data.token);
+            localStorage.setItem('tunnel_auth_user', JSON.stringify(data.user));
+            authUser = data.user;
+            authToken = data.token;
+            
+            closeAuthModal();
+            updateAuthUI();
+            connectSocket();
+            toast(`Welcome, ${authUser.username}`);
+            fetchAndRenderUsers();
+        } else {
+            toast(data.error || 'Google login failed');
+        }
+    } catch (err) {
+        console.error('Google Auth Error:', err);
+        toast('Network error during Google login');
+    }
 }
 
 // --- FILE UPLOAD LOGIC ---
@@ -948,4 +1001,5 @@ updateAuthUI();
 fetchAndRenderUsers();
 showView('home');
 requestNotifyPermission();
+initGoogleAuth();
 

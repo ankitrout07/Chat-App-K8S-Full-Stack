@@ -3,6 +3,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body class="selection:bg-indigo-500/30">
 
@@ -467,6 +468,13 @@
                 <input id="auth-pass" type="password" class="w-full input" placeholder="Password" required>
                 <button type="submit" class="w-full btn btn-primary mt-4">Confirm</button>
             </form>
+
+            <div class="relative my-8">
+                <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-white/5"></div></div>
+                <div class="relative flex justify-center text-[10px] uppercase font-bold"><span class="bg-bg-deep px-4 text-muted">Or Secure via Cloud</span></div>
+            </div>
+
+            <div id="google-login-btn" class="flex justify-center"></div>
             
             <p class="text-center text-xs text-muted mt-6">
                 <span id="auth-toggle-text">New to TunnelPro?</span> 

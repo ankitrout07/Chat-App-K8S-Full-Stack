@@ -7,11 +7,14 @@ const { createAdapter } = require('@socket.io/redis-adapter');
 const { createClient } = require('redis');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { OAuth2Client } = require('google-auth-library');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'tunnel-pro-secret-key-1337';
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const client = new OAuth2Client(GOOGLE_CLIENT_ID);
 const app = express();
 const compression = require('compression');
 app.use(compression());
@@ -93,6 +96,26 @@ async function runMigrations() {
     if (themeCheck.rows.length === 0) {
       await db.query("ALTER TABLE users ADD COLUMN preferred_theme TEXT DEFAULT 'dark'");
       console.log('✅ Added preferred_theme column to users table');
+    }
+
+    // Add google_id column to users if missing
+    const googleIdCheck = await db.query(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_name = 'users' AND column_name = 'google_id'
+    `);
+    if (googleIdCheck.rows.length === 0) {
+      await db.query("ALTER TABLE users ADD COLUMN google_id TEXT UNIQUE");
+      console.log('✅ Added google_id column to users table');
+    }
+
+    // Add avatar_url column to users if missing
+    const avatarCheck = await db.query(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_name = 'users' AND column_name = 'avatar_url'
+    `);
+    if (avatarCheck.rows.length === 0) {
+      await db.query("ALTER TABLE users ADD COLUMN avatar_url TEXT");
+      console.log('✅ Added avatar_url column to users table');
     }
 
     // Add group_id column to messages if it doesn't exist
@@ -254,6 +277,46 @@ app.post('/login', async (req, res) => {
         res.json({ token, user: { id: user.id, username: user.username, preferred_theme: user.preferred_theme } });
     } catch (err) {
         res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/auth/google', async (req, res) => {
+    const { credential } = req.body;
+    try {
+        const ticket = await client.verifyIdToken({
+            idToken: credential,
+            audience: GOOGLE_CLIENT_ID,
+        });
+        const payload = ticket.getPayload();
+        const { sub, email, name, picture } = payload;
+
+        // Use email or sub as username for Google users
+        let username = name || email.split('@')[0];
+        
+        // Check if user exists
+        let result = await db.query('SELECT * FROM users WHERE google_id = $1 OR username = $2', [sub, username]);
+        
+        let user;
+        if (result.rows.length === 0) {
+            // Create new user
+            const insertResult = await db.query(
+                'INSERT INTO users (username, google_id, avatar_url) VALUES ($1, $2, $3) RETURNING id, username, preferred_theme',
+                [username, sub, picture]
+            );
+            user = insertResult.rows[0];
+        } else {
+            user = result.rows[0];
+            // Update google_id if it was a legacy user with same username/email
+            if (!user.google_id) {
+                await db.query('UPDATE users SET google_id = $1, avatar_url = $2 WHERE id = $3', [sub, picture, user.id]);
+            }
+        }
+
+        const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '24h' });
+        res.json({ token, user: { id: user.id, username: user.username, preferred_theme: user.preferred_theme, avatar_url: picture } });
+    } catch (err) {
+        console.error('Google Auth Error:', err);
+        res.status(400).json({ error: 'Google authentication failed' });
     }
 });
 
