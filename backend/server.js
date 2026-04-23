@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-const { Client } = require('pg');
+const { Pool } = require('pg');
 const { createAdapter } = require('@socket.io/redis-adapter');
 const { createClient } = require('redis');
 const bcrypt = require('bcryptjs');
@@ -29,18 +29,22 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+  cors: { origin: "*" }
+});
 
 let db;
 
-// Function to create a fresh DB client
-function createDbClient() {
-  return new Client({
+// Function to create a fresh DB Pool
+function createDbPool() {
+  return new Pool({
+    connectionString: process.env.DATABASE_URL,
     host: process.env.DB_HOST || 'db-service',
     user: process.env.DB_USER || 'postgres',
     password: process.env.POSTGRES_PASSWORD,
     database: process.env.DB_NAME || 'postgres',
     port: 5432,
+    ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
   });
 }
 
@@ -48,9 +52,10 @@ function createDbClient() {
 async function initializeDB(retries = 5) {
   while (retries > 0) {
     try {
-      db = createDbClient();
-      await db.connect();
-      console.log('✅ Database connected');
+      db = createDbPool();
+      // Test connection
+      const res = await db.query('SELECT NOW()');
+      console.log('✅ Database connected (Pool):', res.rows[0].now);
       return;
     } catch (err) {
       retries -= 1;
@@ -210,7 +215,7 @@ setInterval(async () => {
         memory: (process.memoryUsage().rss / 1024 / 1024).toFixed(1),
         connections: io.engine.clientsCount,
         dbStatus: 'HEALTHY',
-        redisStatus: 'CONNECTED', // Simplified for demo, can be improved with redisClient.isReady
+        redisStatus: 'CONNECTED', 
         heartbeat: Date.now()
     };
     io.emit('system-stats', stats);
@@ -273,29 +278,35 @@ io.on('connection', (socket) => {
     // new chat message - insert into db
     socket.on('chat message', async (data) => {
         const room = data.room || 'global';
+        const payload = {
+            sender: socket.user.username,
+            userId: socket.user.id,
+            text: data.text,
+            time: data.time || new Date().toLocaleTimeString(),
+            room: room,
+            id: Date.now() // temporary ID if DB fails
+        };
+
         try {
             const res = await db.query(
                 'INSERT INTO messages (user_id, sender, text, time, room) VALUES ($1, $2, $3, $4, $5) RETURNING id, created_at',
                 [socket.user.id, socket.user.username, data.text, data.time, room]
             );
-            const msgId = res.rows[0].id;
-            const createdAt = res.rows[0].created_at;
-            io.to(room).emit('chat message', {
-                sender: socket.user.username,
-                userId: socket.user.id,
-                text: data.text,
-                time: data.time,
-                id: msgId,
-                created_at: createdAt,
-                room: room
-            });
-        } catch (err) { console.error('Save failed:', err.message); }
+            payload.id = res.rows[0].id;
+            payload.created_at = res.rows[0].created_at;
+            
+            // BROADCAST: Send the saved message to everyone in the room
+            io.to(room).emit('chat message', payload);
+        } catch (err) { 
+            console.error('❌ Persistence failed, broadcasting as ephemeral:', err.message);
+            // BROADCAST anyway to ensure multi-user real-time interaction
+            io.to(room).emit('chat message', { ...payload, ephemeral: true }); 
+        }
     });
 
     // Reactions
     socket.on('reaction', async (data) => {
         try {
-            // data: { messageId, emoji }
             await db.query(
                 'INSERT INTO reactions (message_id, user_id, emoji) VALUES ($1, $2, $3) ON CONFLICT (message_id, user_id, emoji) DO NOTHING',
                 [data.messageId, socket.user.id, data.emoji]
