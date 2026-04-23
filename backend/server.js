@@ -56,6 +56,8 @@ async function initializeDB(retries = 5) {
       // Test connection
       const res = await db.query('SELECT NOW()');
       console.log('✅ Database connected (Pool):', res.rows[0].now);
+      // Auto-migrate: create groups table and add group_id FK to messages
+      await runMigrations();
       return;
     } catch (err) {
       retries -= 1;
@@ -70,11 +72,55 @@ async function initializeDB(retries = 5) {
   }
 }
 
+// Auto-migrate database schema for groups
+async function runMigrations() {
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS groups (
+        id SERIAL PRIMARY KEY,
+        name TEXT UNIQUE NOT NULL,
+        created_by TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    console.log('✅ Groups table ready');
+
+    // Add group_id column to messages if it doesn't exist
+    const colCheck = await db.query(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_name = 'messages' AND column_name = 'group_id'
+    `);
+    if (colCheck.rows.length === 0) {
+      await db.query('ALTER TABLE messages ADD COLUMN group_id INT REFERENCES groups(id) ON DELETE CASCADE');
+      console.log('✅ Added group_id FK to messages');
+    }
+
+    // Seed default channels if none exist
+    const existing = await db.query('SELECT COUNT(*) FROM groups');
+    if (parseInt(existing.rows[0].count) === 0) {
+      await db.query("INSERT INTO groups (name, created_by) VALUES ('general', 'system'), ('dev-ops', 'system'), ('k8s-logs', 'system') ON CONFLICT DO NOTHING");
+      console.log('✅ Default groups seeded');
+    }
+  } catch (err) {
+    console.warn('⚠️ Migration warning (non-fatal):', err.message);
+  }
+}
+
 // Fallback logic for when no DB is available (Demo Mode)
 function setupMemoryFallback() {
   console.log('🛡️ Memory Fallback Active: Chat will work but data will NOT persist.');
   // Mock the db.query method to use in-memory arrays
-  const memoryStore = { users: [], messages: [], reactions: [] };
+  const memoryStore = {
+    users: [],
+    messages: [],
+    reactions: [],
+    groups: [
+      { id: 1, name: 'general', created_by: 'system', created_at: new Date() },
+      { id: 2, name: 'dev-ops', created_by: 'system', created_at: new Date() },
+      { id: 3, name: 'k8s-logs', created_by: 'system', created_at: new Date() }
+    ]
+  };
+  let groupIdCounter = 4;
   db = {
     query: async (text, params) => {
       console.log('☁️ Memory DB Query:', text);
@@ -90,8 +136,23 @@ function setupMemoryFallback() {
       if (text.includes('SELECT id, username FROM users')) {
         return { rows: memoryStore.users };
       }
+      // Groups queries
+      if (text.includes('INSERT INTO groups')) {
+        const existing = memoryStore.groups.find(g => g.name === params[0]);
+        if (existing) throw new Error('Group already exists');
+        const group = { id: groupIdCounter++, name: params[0], created_by: params[1], created_at: new Date() };
+        memoryStore.groups.push(group);
+        return { rows: [group] };
+      }
+      if (text.includes('SELECT * FROM groups ORDER BY')) {
+        return { rows: [...memoryStore.groups] };
+      }
+      if (text.includes('DELETE FROM groups WHERE id')) {
+        memoryStore.groups = memoryStore.groups.filter(g => g.id !== params[0]);
+        return { rows: [] };
+      }
       if (text.includes('INSERT INTO messages')) {
-        const msg = { id: Date.now(), user_id: params[0], sender: params[1], text: params[2], time: params[3], room: params[4], created_at: new Date() };
+        const msg = { id: Date.now(), user_id: params[0], sender: params[1], text: params[2], time: params[3], room: params[4], group_id: params[5] || null, created_at: new Date() };
         memoryStore.messages.push(msg);
         return { rows: [msg] };
       }
@@ -173,13 +234,49 @@ app.get('/users', async (req, res) => {
     }
 });
 
+// --- GROUPS ---
+app.get('/groups', async (req, res) => {
+    try {
+        const result = await db.query('SELECT * FROM groups ORDER BY created_at ASC');
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/groups', async (req, res) => {
+    const { name, createdBy } = req.body;
+    if (!name || !name.trim()) return res.status(400).json({ error: 'Group name is required' });
+    try {
+        const result = await db.query(
+            'INSERT INTO groups (name, created_by) VALUES ($1, $2) RETURNING *',
+            [name.trim().toLowerCase().replace(/\s+/g, '-'), createdBy || 'unknown']
+        );
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        if (err.message.includes('duplicate') || err.message.includes('already exists')) {
+            return res.status(409).json({ error: 'Group already exists' });
+        }
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.delete('/groups/:id', async (req, res) => {
+    try {
+        await db.query('DELETE FROM groups WHERE id = $1', [req.params.id]);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // --- MONITORING ---
 
 // return chat history with pagination
 app.get('/messages', async (req, res) => {
     const limit = parseInt(req.query.limit, 10) || 50;
     const offset = parseInt(req.query.offset, 10) || 0;
-    const room = req.query.room || 'global';
+    const room = req.query.room || 'general';
     try {
         const result = await db.query(
             `SELECT m.id, m.sender, m.text, m.time, m.delivered_at, m.read_at, m.created_at, m.user_id, m.room,
@@ -261,9 +358,23 @@ io.on('connection', (socket) => {
         console.log(`✓ ${username} joined room: ${room}`);
     });
 
+    // Join a group (creates Socket.IO room + notifies)
+    socket.on('joinGroup', async (data) => {
+        const groupName = typeof data === 'string' ? data : data.groupName;
+        socket.join(groupName);
+        console.log(`✓ ${username} joined group: ${groupName}`);
+        socket.to(groupName).emit('group:userJoined', { username, groupName });
+    });
+
+    // Leave a group room
+    socket.on('leaveGroup', (groupName) => {
+        socket.leave(groupName);
+        console.log(`✗ ${username} left group: ${groupName}`);
+    });
+
     // broadcast typing notifications to everyone in the room except the originator
     socket.on('typing', (data) => {
-        const room = data.room || 'global';
+        const room = data.room || 'general';
         socket.to(room).emit('typing', data);
     });
 
@@ -277,7 +388,7 @@ io.on('connection', (socket) => {
 
     // new chat message - insert into db
     socket.on('chat message', async (data) => {
-        const room = data.room || 'global';
+        const room = data.room || 'general';
         const payload = {
             sender: socket.user.username,
             userId: socket.user.id,
@@ -288,12 +399,14 @@ io.on('connection', (socket) => {
         };
 
         try {
+            const groupId = data.groupId || null;
             const res = await db.query(
-                'INSERT INTO messages (user_id, sender, text, time, room) VALUES ($1, $2, $3, $4, $5) RETURNING id, created_at',
-                [socket.user.id, socket.user.username, data.text, data.time, room]
+                'INSERT INTO messages (user_id, sender, text, time, room, group_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, created_at',
+                [socket.user.id, socket.user.username, data.text, data.time, room, groupId]
             );
             payload.id = res.rows[0].id;
             payload.created_at = res.rows[0].created_at;
+            payload.groupId = groupId;
             
             // BROADCAST: Send the saved message to everyone in the room
             io.to(room).emit('chat message', payload);

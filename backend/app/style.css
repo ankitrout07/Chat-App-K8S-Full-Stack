@@ -107,6 +107,47 @@ body {
     opacity: 0.4;
 }
 
+/* Create Group Button */
+.create-group-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 16px;
+    border-radius: 12px;
+    background: rgba(139, 92, 246, 0.06);
+    border: 1px dashed rgba(139, 92, 246, 0.2);
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    width: calc(100% - 24px);
+}
+
+.create-group-btn:hover {
+    background: rgba(139, 92, 246, 0.12);
+    border-color: rgba(139, 92, 246, 0.4);
+    box-shadow: 0 0 20px rgba(139, 92, 246, 0.1);
+    transform: translateY(-1px);
+}
+
+.create-group-btn:active {
+    transform: scale(0.98);
+}
+
+/* Button disabled state */
+.btn-premium:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* Group delete button visibility on hover */
+.sidebar-item:hover button {
+    opacity: 1 !important;
+}
+
 /* Message Styling */
 .message-anim {
     animation: messageIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;

@@ -23,9 +23,13 @@
         
         <div class="flex-grow overflow-y-auto custom-scrollbar py-6">
             <div class="sidebar-label">Channels</div>
-            <div class="sidebar-item active" data-room="global" onclick="joinRoom('global')"><i class="fas fa-hashtag text-xs"></i> general</div>
-            <div class="sidebar-item" data-room="dev-ops" onclick="joinRoom('dev-ops')"><i class="fas fa-code-branch text-xs"></i> dev-ops</div>
-            <div class="sidebar-item" data-room="k8s-logs" onclick="joinRoom('k8s-logs')"><i class="fas fa-terminal text-xs"></i> k8s-logs</div>
+            <div id="group-list" class="px-1 space-y-0.5">
+                <!-- Dynamically populated by script.js -->
+            </div>
+            <button id="create-group-btn" onclick="openGroupModal()" class="create-group-btn mx-3 mt-3">
+                <i class="fas fa-plus text-[10px]"></i>
+                <span>New Channel</span>
+            </button>
 
             <div class="sidebar-label">Intelligence</div>
             <div id="nav-monitor" class="sidebar-item" onclick="showView('monitor')"><i class="fas fa-wave-square text-xs"></i> Monitoring</div>
@@ -280,6 +284,33 @@
         </section>
     </div>
 
+
+    <!-- Create Group Modal -->
+    <div id="group-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div class="panel p-8 rounded-[2.5rem] w-full max-w-md shadow-2xl relative overflow-hidden">
+            <div class="absolute -top-16 -right-16 w-48 h-48 bg-indigo-500/10 blur-[80px] rounded-full pointer-events-none"></div>
+            <div class="absolute -bottom-16 -left-16 w-48 h-48 bg-cyan-500/5 blur-[80px] rounded-full pointer-events-none"></div>
+            <button onclick="closeGroupModal()" class="absolute top-6 right-6 text-muted hover:text-red-500 transition-colors z-10"><i class="fas fa-times"></i></button>
+            <div class="relative z-10">
+                <div class="w-14 h-14 rounded-2xl bg-indigo-500/10 flex items-center justify-center mb-6 border border-indigo-500/20">
+                    <i class="fas fa-hashtag text-2xl text-indigo-400"></i>
+                </div>
+                <h3 class="text-2xl font-black mb-2 tracking-tight">Create Channel</h3>
+                <p class="text-xs text-muted mb-8">Channels are where your team communicates. They're best organized around a topic.</p>
+                <form id="group-form" onsubmit="handleCreateGroup(event)" class="space-y-4">
+                    <div class="relative">
+                        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 font-bold">#</span>
+                        <input id="group-name-input" class="w-full input pl-9" placeholder="e.g. project-alpha" autocomplete="off" required maxlength="30">
+                    </div>
+                    <p id="group-error" class="text-red-400 text-xs hidden"></p>
+                    <button type="submit" id="group-submit-btn" class="w-full btn-premium py-3 rounded-xl text-xs font-black uppercase tracking-widest">
+                        <span id="group-submit-text">Create Channel</span>
+                        <i id="group-submit-spinner" class="fas fa-circle-notch fa-spin hidden ml-2"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
 
     <!-- Auth Modal -->
     <div id="auth-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">

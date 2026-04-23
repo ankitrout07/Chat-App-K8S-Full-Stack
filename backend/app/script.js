@@ -1,7 +1,9 @@
 const socket = io({ autoConnect: false });
 let onlineUserIds = new Set();
 let allUsers = [];
-let currentRoom = 'global';
+let allGroups = [];
+let currentRoom = 'general';
+let currentGroupId = null;
 
 const themes = {
     dark: { 
@@ -103,6 +105,107 @@ async function uploadFile(input) {
     input.value = '';
 }
 
+// --- GROUP MANAGEMENT ---
+function openGroupModal() {
+    if (!authUser) return toast('Login to create channels');
+    document.getElementById('group-modal').classList.remove('hidden');
+    document.getElementById('group-name-input').value = '';
+    document.getElementById('group-error').classList.add('hidden');
+    setTimeout(() => document.getElementById('group-name-input').focus(), 100);
+}
+
+function closeGroupModal() {
+    document.getElementById('group-modal').classList.add('hidden');
+}
+
+async function handleCreateGroup(e) {
+    e.preventDefault();
+    const nameInput = document.getElementById('group-name-input');
+    const errorEl = document.getElementById('group-error');
+    const submitBtn = document.getElementById('group-submit-btn');
+    const submitText = document.getElementById('group-submit-text');
+    const spinner = document.getElementById('group-submit-spinner');
+    const name = nameInput.value.trim();
+    if (!name) return;
+
+    errorEl.classList.add('hidden');
+    submitBtn.disabled = true;
+    submitText.textContent = 'Creating...';
+    spinner.classList.remove('hidden');
+
+    try {
+        const res = await fetch('/groups', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, createdBy: currentUser })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            closeGroupModal();
+            toast(`Channel #${data.name} created`);
+            await fetchGroups();
+            joinRoom(data.name, data.id);
+        } else {
+            errorEl.textContent = data.error || 'Failed to create channel';
+            errorEl.classList.remove('hidden');
+        }
+    } catch (err) {
+        errorEl.textContent = 'Network error. Try again.';
+        errorEl.classList.remove('hidden');
+    } finally {
+        submitBtn.disabled = false;
+        submitText.textContent = 'Create Channel';
+        spinner.classList.add('hidden');
+    }
+}
+
+async function fetchGroups() {
+    try {
+        const res = await fetch('/groups');
+        allGroups = await res.json();
+        renderGroups();
+    } catch (e) {
+        console.error('Error fetching groups:', e);
+    }
+}
+
+function renderGroups() {
+    const list = document.getElementById('group-list');
+    if (!list) return;
+
+    const icons = {
+        'general': 'fa-hashtag',
+        'dev-ops': 'fa-code-branch',
+        'k8s-logs': 'fa-terminal',
+        'default': 'fa-hashtag'
+    };
+
+    list.innerHTML = allGroups.map(g => {
+        const icon = icons[g.name] || icons['default'];
+        const isActive = currentRoom === g.name;
+        return `
+        <div class="sidebar-item ${isActive ? 'active' : ''}" data-room="${g.name}" data-group-id="${g.id}" onclick="joinRoom('${g.name}', ${g.id})">
+            <i class="fas ${icon} text-xs"></i>
+            <span class="flex-grow truncate">${g.name}</span>
+            ${g.created_by !== 'system' ? `<button onclick="event.stopPropagation(); deleteGroup(${g.id}, '${g.name}')" class="opacity-0 group-hover:opacity-100 text-white/20 hover:text-red-400 transition-all text-[10px] p-1"><i class="fas fa-trash-alt"></i></button>` : ''}
+        </div>`;
+    }).join('');
+}
+
+async function deleteGroup(id, name) {
+    if (!confirm(`Delete channel #${name}? All messages in this channel will be lost.`)) return;
+    try {
+        await fetch(`/groups/${id}`, { method: 'DELETE' });
+        toast(`Channel #${name} deleted`);
+        await fetchGroups();
+        if (currentRoom === name) {
+            joinRoom('general', allGroups.find(g => g.name === 'general')?.id || null);
+        }
+    } catch (err) {
+        toast('Failed to delete channel');
+    }
+}
+
 // --- CORE CHAT LOGIC ---
 function sendMessage() {
     const inputDom = document.getElementById('input');
@@ -112,7 +215,8 @@ function sendMessage() {
             userId: authUser ? authUser.id : null,
             text: inputDom.value, 
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            room: currentRoom
+            room: currentRoom,
+            groupId: currentGroupId
         };
         
         socket.emit('chat message', payload);
@@ -167,9 +271,11 @@ function showView(viewId) {
     }
 }
 
-function joinRoom(room) {
+function joinRoom(room, groupId) {
     currentRoom = room;
+    currentGroupId = groupId || null;
     socket.emit('join room', room);
+    socket.emit('joinGroup', room);
     document.getElementById('messages').innerHTML = '';
     offset = 0;
     loadMessages();
@@ -486,6 +592,12 @@ socket.on('connect_error', (err) => {
     }
 });
 
+socket.on('group:userJoined', (data) => {
+    if (data.username !== currentUser) {
+        toast(`${data.username} joined #${data.groupName}`);
+    }
+});
+
 // --- EVENT LISTENERS ---
 document.getElementById('auth-form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -510,7 +622,9 @@ document.getElementById('auth-form').addEventListener('submit', async (e) => {
                 closeAuthModal();
                 toast('Welcome back, ' + authUser.username);
                 fetchAndRenderUsers();
-                joinRoom('global');
+                await fetchGroups();
+                const generalGroup = allGroups.find(g => g.name === 'general');
+                joinRoom('general', generalGroup?.id || null);
             } else {
                 toast('Resource created. Please login.');
                 toggleAuthMode();
@@ -565,12 +679,17 @@ document.getElementById('clear-chat').addEventListener('click', () => {
 const savedTheme = localStorage.getItem('chat-theme') || 'dark';
 applyTheme(savedTheme);
 
-if (authToken && authUser) {
-    updateAuthUI();
-    socket.auth = { token: authToken };
-    socket.connect();
-    joinRoom('global');
-}
+// Load groups first, then auto-join
+(async () => {
+    await fetchGroups();
+    if (authToken && authUser) {
+        updateAuthUI();
+        socket.auth = { token: authToken };
+        socket.connect();
+        const generalGroup = allGroups.find(g => g.name === 'general');
+        joinRoom('general', generalGroup?.id || null);
+    }
+})();
 
 updateAuthUI();
 fetchAndRenderUsers();
