@@ -112,10 +112,12 @@ function updateAuthUI() {
         
         currentUser = authUser.username;
         
-        // Restore theme from profile
+        // Restore theme and status from profile
         if (authUser.preferred_theme) {
             applyTheme(authUser.preferred_theme);
         }
+        document.getElementById('nav-status-emoji').innerText = authUser.status_emoji || '🟢';
+        document.getElementById('nav-status-text').innerText = authUser.status_text || 'Available';
     } else {
         document.getElementById('auth-nav').classList.add('hidden');
         document.getElementById('login-btn').classList.remove('hidden');
@@ -526,13 +528,18 @@ function renderUsers() {
         const room = getDMId(authUser ? authUser.id : 0, u.id);
         
         return `
-        <div class="sidebar-item group" data-room="${room}" onclick="joinRoom('${room}')">
+        <div class="sidebar-item group" data-room="${room}" data-user-id="${u.id}" onclick="joinRoom('${room}')">
             <div class="relative">
                 <div class="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-[10px] font-black border border-white/5 group-hover:border-indigo-500/30 transition-all">${u.username[0].toUpperCase()}</div>
                 ${isOnline ? '<div class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-bg-deep shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>' : ''}
             </div>
-            <span class="truncate text-xs font-bold ${isOnline ? 'text-white/80' : 'text-white/30'}">${u.username}</span>
-            ${isOnline ? '<span class="ml-auto w-1 h-1 rounded-full bg-indigo-500/50"></span>' : ''}
+            <div class="flex flex-col min-w-0">
+                <div class="flex items-center gap-1.5">
+                    <span class="truncate text-xs font-bold ${isOnline ? 'text-white/80' : 'text-white/30'}">${u.username}</span>
+                    <span class="text-[9px] opacity-60">${u.status_emoji || '🟢'}</span>
+                </div>
+                <span class="text-[8px] text-muted truncate opacity-40">${u.status_text || 'Available'}</span>
+            </div>
         </div>`;
     }).join('');
 }
@@ -642,6 +649,8 @@ function openProfileModal() {
     const modal = document.getElementById('profile-modal');
     document.getElementById('profile-username').innerText = authUser.username;
     document.getElementById('profile-bio-input').value = authUser.bio || '';
+    document.getElementById('profile-status-text').value = authUser.status_text || 'Available';
+    document.getElementById('profile-status-emoji').value = authUser.status_emoji || '🟢';
     document.getElementById('profile-avatar').innerText = authUser.username[0].toUpperCase();
     modal.classList.remove('hidden');
 }
@@ -652,9 +661,18 @@ function closeProfileModal() {
 
 function saveProfile() {
     const bio = document.getElementById('profile-bio-input').value;
+    const statusText = document.getElementById('profile-status-text').value;
+    const statusEmoji = document.getElementById('profile-status-emoji').value;
+    
     socket.emit('updateBio', { bio });
+    socket.emit('updateStatus', { text: statusText, emoji: statusEmoji });
+    
     authUser.bio = bio;
+    authUser.status_text = statusText;
+    authUser.status_emoji = statusEmoji;
+    
     localStorage.setItem('tunnel_auth_user', JSON.stringify(authUser));
+    updateAuthUI();
     toast('Neural profile synchronized');
     closeProfileModal();
 }
@@ -698,7 +716,7 @@ function showHoverCard(trigger, userId, username) {
     
     if (isOnline) {
         statusDot.className = 'w-1.5 h-1.5 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.5)]';
-        statusText.innerText = 'Online';
+        statusText.innerHTML = `<span class="mr-1">${user?.status_emoji || '🟢'}</span> ${user?.status_text || 'Online'}`;
         statusText.className = 'text-[8px] font-bold text-emerald-400 uppercase tracking-widest';
     } else {
         statusDot.className = 'w-1.5 h-1.5 bg-white/20 rounded-full';
@@ -1087,6 +1105,15 @@ socket.on('messageUnpinned', (msgId) => {
 
 socket.on('pinnedMessages', (messages) => {
     renderPinnedMessages(messages);
+});
+
+socket.on('user:statusUpdate', (data) => {
+    const user = allUsers.find(u => u.id === data.userId);
+    if (user) {
+        user.status_text = data.text;
+        user.status_emoji = data.emoji;
+        renderUsers();
+    }
 });
 
 socket.on('addedToGroup', (data) => {

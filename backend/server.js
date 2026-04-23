@@ -91,6 +91,8 @@ async function runMigrations() {
         google_id TEXT UNIQUE,
         avatar_url TEXT,
         bio TEXT DEFAULT 'Neural interface active...',
+        status_text TEXT DEFAULT 'Available',
+        status_emoji TEXT DEFAULT '🟢',
         preferred_theme TEXT DEFAULT 'dark',
         created_at TIMESTAMP DEFAULT NOW()
       )
@@ -178,6 +180,17 @@ async function runMigrations() {
       console.log('✅ Added bio column to users table');
     }
 
+    // Add status columns to users if missing
+    const statusTextCheck = await db.query(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_name = 'users' AND column_name = 'status_text'
+    `);
+    if (statusTextCheck.rows.length === 0) {
+      await db.query("ALTER TABLE users ADD COLUMN status_text TEXT DEFAULT 'Available'");
+      await db.query("ALTER TABLE users ADD COLUMN status_emoji TEXT DEFAULT '🟢'");
+      console.log('✅ Added status columns to users table');
+    }
+
     // Add group_id column to messages if it doesn't exist
     const colCheck = await db.query(`
       SELECT column_name FROM information_schema.columns
@@ -261,7 +274,17 @@ function setupMemoryFallback() {
     query: async (text, params) => {
       console.log('☁️ Memory DB Query:', text);
       if (text.includes('INSERT INTO users')) {
-        const user = { id: Date.now(), username: params[0], password_hash: params[1], google_id: params[2] || null, avatar_url: params[3] || null, bio: 'Neural interface active...', preferred_theme: 'dark' };
+        const user = { 
+            id: Date.now(), 
+            username: params[0], 
+            password_hash: params[1], 
+            google_id: params[2] || null, 
+            avatar_url: params[3] || null, 
+            bio: 'Neural interface active...', 
+            status_text: 'Available',
+            status_emoji: '🟢',
+            preferred_theme: 'dark' 
+        };
         memoryStore.users.push(user);
         return { rows: [user] };
       }
@@ -272,6 +295,11 @@ function setupMemoryFallback() {
       if (text.includes('UPDATE users SET bio = $1')) {
         const user = memoryStore.users.find(u => u.id === params[1]);
         if (user) { user.bio = params[0]; }
+        return { rows: [] };
+      }
+      if (text.includes('UPDATE users SET status_text = $1, status_emoji = $2')) {
+        const user = memoryStore.users.find(u => u.id === params[2]);
+        if (user) { user.status_text = params[0]; user.status_emoji = params[1]; }
         return { rows: [] };
       }
       if (text.includes('UPDATE users SET google_id')) {
@@ -843,6 +871,19 @@ io.on('connection', (socket) => {
             console.log(`🎨 Theme updated to ${theme} for user ${socket.user.username}`);
         } catch (err) {
             console.error('Theme Update Error:', err);
+        }
+    });
+
+    // Handle status update
+    socket.on('updateStatus', async ({ text, emoji }) => {
+        try {
+            await db.query('UPDATE users SET status_text = $1, status_emoji = $2 WHERE id = $3', [text, emoji, socket.user.id]);
+            socket.user.status_text = text;
+            socket.user.status_emoji = emoji;
+            io.emit('user:statusUpdate', { userId: socket.user.id, text, emoji });
+            console.log(`📡 Status updated for ${socket.user.username}: ${emoji} ${text}`);
+        } catch (err) {
+            console.error('Status Update Error:', err);
         }
     });
 

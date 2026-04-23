@@ -51,8 +51,11 @@
                 <div class="flex items-center gap-3 cursor-pointer group" onclick="openProfileModal()">
                     <div id="user-avatar-mini" class="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white text-sm shadow-inner group-hover:scale-105 transition-all" style="background:var(--accent)">?</div>
                     <div class="flex flex-col overflow-hidden">
-                        <span id="nav-username" class="text-xs font-black uppercase truncate text-white"></span>
-                        <span class="text-[9px] font-bold text-emerald-400 uppercase tracking-wider">Online</span>
+                        <div class="flex items-center gap-2">
+                            <span id="nav-username" class="text-xs font-black uppercase truncate text-white"></span>
+                            <span id="nav-status-emoji" class="text-[10px]">🟢</span>
+                        </div>
+                        <span id="nav-status-text" class="text-[9px] font-bold text-white/40 truncate uppercase tracking-wider">Available</span>
                     </div>
                 </div>
                 <button onclick="logout()" class="text-white/20 hover:text-red-400 transition-colors p-2"><i class="fas fa-power-off"></i></button>
@@ -527,8 +530,23 @@
 
             <div class="space-y-6">
                 <div class="space-y-2">
+                    <label class="text-[10px] font-black uppercase text-white/30 tracking-widest px-1">Current Protocol / Status</label>
+                    <div class="flex gap-2">
+                        <select id="profile-status-emoji" class="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-lg outline-none focus:border-indigo-500/50">
+                            <option value="🟢">🟢 Available</option>
+                            <option value="🔴">🔴 Busy / Focus</option>
+                            <option value="🟡">🟡 Away / AFK</option>
+                            <option value="🚀">🚀 Deploying</option>
+                            <option value="🔋">🔋 Charging</option>
+                            <option value="🧊">🧊 Deep Sleep</option>
+                        </select>
+                        <input id="profile-status-text" class="flex-grow input py-3" placeholder="Status message..." maxlength="30">
+                    </div>
+                </div>
+
+                <div class="space-y-2">
                     <label class="text-[10px] font-black uppercase text-white/30 tracking-widest px-1">Professional Bio / Designation</label>
-                    <textarea id="profile-bio-input" class="w-full input min-h-[120px] resize-none text-sm leading-relaxed" placeholder="Tell the team about your mission..."></textarea>
+                    <textarea id="profile-bio-input" class="w-full input min-h-[100px] resize-none text-sm leading-relaxed" placeholder="Tell the team about your mission..."></textarea>
                 </div>
 
                 <button onclick="saveProfile()" class="w-full btn-premium py-4 rounded-2xl text-xs font-black uppercase tracking-widest shadow-[0_10px_20px_rgba(99,102,241,0.2)]">
