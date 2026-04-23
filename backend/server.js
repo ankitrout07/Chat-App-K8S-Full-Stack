@@ -26,6 +26,16 @@ const compression = require('compression');
 app.use(compression());
 app.use(express.json());
 
+// --- TRANSPORT SECURITY (HTTPS REDIRECT) ---
+if (process.env.NODE_ENV === 'production') {
+    app.use((req, res, next) => {
+        if (req.headers['x-forwarded-proto'] !== 'https') {
+            return res.redirect(`https://${req.headers.host}${req.url}`);
+        }
+        next();
+    });
+}
+
 // --- RATE LIMITING ---
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -57,7 +67,10 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: "*" }
+  cors: {
+    origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : "*",
+    methods: ["GET", "POST"]
+  }
 });
 
 let db;
