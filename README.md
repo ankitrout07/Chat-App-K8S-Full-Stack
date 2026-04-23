@@ -49,7 +49,7 @@ Chat-App-K8S-Full-Stack/
 ## 🚀 Quick Start (Local Development)
 
 ### 1. Prerequisites
-- **Node.js** (v22+)
+- **Node.js** (v24+)
 - **PostgreSQL** & **Redis** (Local or via Docker)
 - **Make** (Optional, but recommended)
 
