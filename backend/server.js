@@ -159,6 +159,12 @@ function setupMemoryFallback() {
       if (text.includes('SELECT m.id')) {
         return { rows: memoryStore.messages.filter(m => m.room === params[0]).reverse().slice(params[2], params[2] + params[1]) };
       }
+      // Bot diagnostic queries for Demo Mode
+      if (text.includes('SELECT COUNT(*) FROM messages')) return { rows: [{ count: memoryStore.messages.length }] };
+      if (text.includes('SELECT COUNT(*) FROM users')) return { rows: [{ count: memoryStore.users.length }] };
+      if (text.includes('SELECT COUNT(*) FROM groups')) return { rows: [{ count: memoryStore.groups.length }] };
+      if (text.includes('SELECT NOW()')) return { rows: [{ time: new Date().toISOString(), name: 'MEMORY_STORE', size: '0 MB' }] };
+
       return { rows: [] };
     }
   };
@@ -540,6 +546,11 @@ io.on('connection', (socket) => {
     socket.on('leaveGroup', (groupName) => {
         socket.leave(groupName);
         console.log(`✗ ${username} left group: ${groupName}`);
+    });
+
+    // Propagate group deletion
+    socket.on('group:delete', (data) => {
+        io.emit('group:deleted', data);
     });
 
     // broadcast typing notifications to everyone in the room except the originator

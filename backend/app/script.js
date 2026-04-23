@@ -195,11 +195,11 @@ function renderGroups() {
 async function deleteGroup(id, name) {
     if (!confirm(`Delete channel #${name}? All messages in this channel will be lost.`)) return;
     try {
-        await fetch(`/groups/${id}`, { method: 'DELETE' });
-        toast(`Channel #${name} deleted`);
-        await fetchGroups();
-        if (currentRoom === name) {
-            joinRoom('general', allGroups.find(g => g.name === 'general')?.id || null);
+        const res = await fetch(`/groups/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+            socket.emit('group:delete', { id, name });
+            toast(`Channel #${name} deleted`);
+            await fetchGroups();
         }
     } catch (err) {
         toast('Failed to delete channel');
@@ -358,7 +358,7 @@ let offset = 0;
 const limit = 50;
 let fetching = false;
 
-async function loadMessages() {
+async function loadMessages(isLoadMore = false) {
     if (fetching) return;
     fetching = true;
     try {
@@ -368,13 +368,22 @@ async function loadMessages() {
             fetching = false;
             return;
         }
-        data.reverse().forEach(msg => prependMessage(msg));
+
+        if (isLoadMore) {
+            // Prepend older messages at the top
+            data.forEach(msg => prependMessage(msg, true));
+        } else {
+            // Initial load: append newest at the bottom
+            data.reverse().forEach(msg => prependMessage(msg, false));
+            const container = document.getElementById('messages');
+            container.scrollTop = container.scrollHeight;
+        }
         offset += data.length;
     } catch (e) { console.error('Error loading messages', e); }
     finally { fetching = false; }
 }
 
-function prependMessage(data) {
+function prependMessage(data, atTop = true) {
     const messages = document.getElementById('messages');
     const emptyState = document.getElementById('empty-state');
     if (emptyState) emptyState.style.display = 'none';
@@ -439,16 +448,23 @@ function prependMessage(data) {
                 </div>
             </div>`;
     }
-    messages.prepend(msgEl);
+    
+    if (atTop) {
+        messages.prepend(msgEl);
+    } else {
+        messages.appendChild(msgEl);
+    }
+
     if (!isBot && !isCommand) {
         observeMessage(msgEl);
         updateStatusFromData(msgEl, data);
-        if (!isMe) {
+        if (!isMe && !atTop) {
             socket.emit('message delivered', data.id);
         }
     }
     updateMessageCount();
 }
+
 
 function updateStatusFromData(el, data) {
     const statusEl = el.querySelector('.status div:first-child');
@@ -513,7 +529,20 @@ function updateStatsUI(stats) {
 }
 
 // --- SOCKET EVENT HANDLERS ---
+socket.on('group:userJoined', (data) => {
+    toast(`${data.username} joined #${data.groupName}`);
+});
+
+socket.on('group:deleted', (data) => {
+    if (currentRoom === data.name) {
+        toast(`Channel #${data.name} was deleted by admin`);
+        joinRoom('general', allGroups.find(g => g.name === 'general')?.id || null);
+    }
+    fetchGroups();
+});
+
 socket.on('chat message', (data) => {
+
     if (data.room !== currentRoom) return;
     const messages = document.getElementById('messages');
     const emptyState = document.getElementById('empty-state');
@@ -767,7 +796,4 @@ applyTheme(savedTheme);
 updateAuthUI();
 fetchAndRenderUsers();
 showView('home');
-loadMessages().then(() => { 
-    const messagesContainer = document.getElementById('messages');
-    messagesContainer.scrollTop = messagesContainer.scrollHeight; 
-});
+
