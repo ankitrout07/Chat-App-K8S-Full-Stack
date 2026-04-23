@@ -14,7 +14,12 @@ const fs = require('fs');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'tunnel-pro-secret-key-1337';
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-const client = new OAuth2Client(GOOGLE_CLIENT_ID);
+let client;
+if (GOOGLE_CLIENT_ID) {
+    client = new OAuth2Client(GOOGLE_CLIENT_ID);
+} else {
+    console.warn('⚠️ GOOGLE_CLIENT_ID missing from environment variables. Google Auth will not function.');
+}
 const app = express();
 const compression = require('compression');
 app.use(compression());
@@ -79,6 +84,19 @@ async function initializeDB(retries = 5) {
 async function runMigrations() {
   try {
     await db.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username TEXT UNIQUE NOT NULL,
+        password_hash TEXT,
+        google_id TEXT UNIQUE,
+        avatar_url TEXT,
+        preferred_theme TEXT DEFAULT 'dark',
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    console.log('✅ Users table ready');
+
+    await db.query(`
       CREATE TABLE IF NOT EXISTS groups (
         id SERIAL PRIMARY KEY,
         name TEXT UNIQUE NOT NULL,
@@ -87,6 +105,35 @@ async function runMigrations() {
       )
     `);
     console.log('✅ Groups table ready');
+
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS messages (
+        id SERIAL PRIMARY KEY,
+        user_id INT REFERENCES users(id) ON DELETE CASCADE,
+        sender TEXT NOT NULL,
+        text TEXT NOT NULL,
+        time TEXT NOT NULL,
+        room TEXT DEFAULT 'general',
+        group_id INT REFERENCES groups(id) ON DELETE CASCADE,
+        parent_id INT REFERENCES messages(id) ON DELETE CASCADE,
+        delivered_at TIMESTAMP,
+        read_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    console.log('✅ Messages table ready');
+
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS reactions (
+        id SERIAL PRIMARY KEY,
+        message_id INT REFERENCES messages(id) ON DELETE CASCADE,
+        user_id INT REFERENCES users(id) ON DELETE CASCADE,
+        emoji TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(message_id, user_id, emoji)
+      )
+    `);
+    console.log('✅ Reactions table ready');
 
     // Add preferred_theme column to users if missing
     const themeCheck = await db.query(`
@@ -181,9 +228,18 @@ function setupMemoryFallback() {
     query: async (text, params) => {
       console.log('☁️ Memory DB Query:', text);
       if (text.includes('INSERT INTO users')) {
-        const user = { id: Date.now(), username: params[0], password_hash: params[1] };
+        const user = { id: Date.now(), username: params[0], password_hash: params[1], google_id: params[2] || null, avatar_url: params[3] || null, preferred_theme: 'dark' };
         memoryStore.users.push(user);
         return { rows: [user] };
+      }
+      if (text.includes('SELECT * FROM users WHERE google_id')) {
+        const user = memoryStore.users.find(u => u.google_id === params[0] || u.username === params[1]);
+        return { rows: user ? [user] : [] };
+      }
+      if (text.includes('UPDATE users SET google_id')) {
+        const user = memoryStore.users.find(u => u.id === params[2]);
+        if (user) { user.google_id = params[0]; user.avatar_url = params[1]; }
+        return { rows: [] };
       }
       if (text.includes('SELECT * FROM users WHERE username')) {
         const user = memoryStore.users.find(u => u.username === params[0]);
@@ -191,6 +247,12 @@ function setupMemoryFallback() {
       }
       if (text.includes('SELECT id, username FROM users')) {
         return { rows: memoryStore.users };
+      }
+      // Reactions
+      if (text.includes('INSERT INTO reactions')) {
+        const reaction = { message_id: params[0], user_id: params[1], emoji: params[2] };
+        memoryStore.reactions.push(reaction);
+        return { rows: [reaction] };
       }
       // Groups queries
       if (text.includes('INSERT INTO groups')) {
@@ -208,12 +270,30 @@ function setupMemoryFallback() {
         return { rows: [] };
       }
       if (text.includes('INSERT INTO messages')) {
-        const msg = { id: Date.now(), user_id: params[0], sender: params[1], text: params[2], time: params[3], room: params[4], group_id: params[5] || null, created_at: new Date() };
+        const msg = { id: Date.now(), user_id: params[0], sender: params[1], text: params[2], time: params[3], room: params[4], group_id: params[5] || null, parent_id: params[6] || null, created_at: new Date() };
         memoryStore.messages.push(msg);
         return { rows: [msg] };
       }
+      if (text.includes('UPDATE messages SET delivered_at')) {
+        const msg = memoryStore.messages.find(m => m.id === params[0]);
+        if (msg) msg.delivered_at = new Date();
+        return { rows: [] };
+      }
+      if (text.includes('UPDATE messages SET read_at')) {
+        const msg = memoryStore.messages.find(m => m.id === params[0]);
+        if (msg) msg.read_at = new Date();
+        return { rows: [] };
+      }
       if (text.includes('SELECT m.id')) {
-        return { rows: memoryStore.messages.filter(m => m.room === params[0]).reverse().slice(params[2], params[2] + params[1]) };
+        const roomMsgs = memoryStore.messages.filter(m => m.room === params[0]);
+        const results = roomMsgs.reverse().slice(params[2], params[2] + params[1]).map(m => ({
+          ...m,
+          reactions: memoryStore.reactions.filter(r => r.message_id === m.id).map(r => ({
+            ...r,
+            username: memoryStore.users.find(u => u.id === r.user_id)?.username || 'unknown'
+          }))
+        }));
+        return { rows: results };
       }
       // Bot diagnostic queries for Demo Mode
       if (text.includes('SELECT COUNT(*) FROM messages')) return { rows: [{ count: memoryStore.messages.length }] };
@@ -281,6 +361,9 @@ app.post('/login', async (req, res) => {
 });
 
 app.post('/auth/google', async (req, res) => {
+    if (!client) {
+        return res.status(501).json({ error: 'Google authentication is not configured on this server.' });
+    }
     const { credential } = req.body;
     try {
         const ticket = await client.verifyIdToken({
