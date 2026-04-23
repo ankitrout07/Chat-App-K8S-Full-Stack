@@ -17,3 +17,4 @@ metadata:
 type: Opaque
 stringData:
   POSTGRES_PASSWORD: "password"
+  JWT_SECRET: "tunnel-pro-quantum-secret-2026"
