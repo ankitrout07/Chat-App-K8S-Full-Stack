@@ -40,7 +40,7 @@ const SVGS = {
 };
 
 function applyTheme(name) {
-    const themeClasses = ['theme-dark', 'theme-light', 'theme-solar', 'cyberpunk', 'space', 'emerald'].map(t => 'theme-' + t);
+    const themeClasses = ['dark', 'light', 'solar', 'cyberpunk', 'space', 'emerald'].map(t => 'theme-' + t);
     
     // Remove existing theme classes
     themeClasses.forEach(c => document.body.classList.remove(c));
