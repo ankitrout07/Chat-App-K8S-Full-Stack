@@ -256,6 +256,46 @@ function toast(msg) {
     el._t = setTimeout(() => (el.style.display = 'none'), 1800);
 }
 
+// Function to create a Quantum Toast (Stackable)
+function showNotification(data) {
+    const stack = document.getElementById('notification-stack');
+    if (!stack) return;
+
+    const toast = document.createElement('div');
+    toast.className = 'quantum-toast glass p-4';
+    
+    const isBot = data.isBot || data.sender === 'TunnelBot';
+    const borderCol = isBot ? 'var(--accent-secondary)' : 'var(--accent)';
+
+    toast.innerHTML = `
+        <div class="flex items-start gap-4" style="border-left: 4px solid ${borderCol}; padding-left: 12px;">
+            <div class="flex-grow">
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="text-[10px] font-black uppercase tracking-widest text-white/90">${data.sender}</span>
+                    ${isBot ? '<span class="text-[8px] px-1.5 py-0.5 rounded-md bg-cyan-500/20 text-cyan-400 font-black">BOT</span>' : ''}
+                </div>
+                <p class="text-[11px] leading-relaxed text-white/60 font-medium">${data.text.substring(0, 80)}${data.text.length > 80 ? '...' : ''}</p>
+            </div>
+        </div>
+    `;
+
+    stack.prepend(toast); // Newest at top of stack
+
+    // Auto-vanish after 5 seconds
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(50px) scale(0.95)';
+        setTimeout(() => toast.remove(), 500);
+    }, 5000);
+}
+
+function requestNotifyPermission() {
+    if (window.Notification && Notification.permission !== 'granted') {
+        Notification.requestPermission();
+    }
+}
+
+
 function showView(viewId) {
     document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
     const viewEl = document.getElementById('view-' + viewId);
@@ -612,18 +652,21 @@ socket.on('chat message', (data) => {
             </div>`;
     }
 
-    messages.appendChild(msgEl);
-    if (isBot) {
-        // Play a subtle notification sound for bot responses
-        popSound.play().catch(e => {});
-    } else if (!isMe && !isCommand) {
-        popSound.play().catch(e => {});
-    }
-    if (!isBot && !isCommand) {
-        observeMessage(msgEl);
-    }
     messages.scrollTop = messages.scrollHeight;
     updateMessageCount();
+
+    // 📣 NOTIFICATION SYSTEM
+    if (!isMe && !isCommand) {
+        showNotification(data);
+        
+        // Browser Push Notification (if tab is hidden)
+        if (window.Notification && Notification.permission === 'granted' && document.hidden) {
+            new Notification(`${data.sender}`, {
+                body: data.text,
+                icon: 'https://cdn-icons-png.flaticon.com/512/825/825590.png'
+            });
+        }
+    }
 });
 
 socket.on('system-stats', (stats) => updateStatsUI(stats));
@@ -806,4 +849,5 @@ applyTheme(savedTheme);
 updateAuthUI();
 fetchAndRenderUsers();
 showView('home');
+requestNotifyPermission();
 
