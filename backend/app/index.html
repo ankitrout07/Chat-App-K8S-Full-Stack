@@ -48,8 +48,8 @@
 
         <div class="p-6 border-t border-white/[0.03] bg-white/[0.01]">
             <div id="auth-nav" class="hidden flex items-center justify-between gap-3 p-4 rounded-2xl glass border border-white/[0.05]">
-                <div class="flex items-center gap-3">
-                    <div id="user-avatar-mini" class="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white text-sm shadow-inner" style="background:var(--accent)">?</div>
+                <div class="flex items-center gap-3 cursor-pointer group" onclick="openProfileModal()">
+                    <div id="user-avatar-mini" class="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white text-sm shadow-inner group-hover:scale-105 transition-all" style="background:var(--accent)">?</div>
                     <div class="flex flex-col overflow-hidden">
                         <span id="nav-username" class="text-xs font-black uppercase truncate text-white"></span>
                         <span class="text-[9px] font-bold text-emerald-400 uppercase tracking-wider">Online</span>
@@ -514,5 +514,49 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="script.js"></script>
+    <!-- Profile Modal -->
+    <div id="profile-modal" class="hidden fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+        <div class="panel p-8 rounded-[2.5rem] w-full max-w-md shadow-2xl relative border border-white/10">
+            <button onclick="closeProfileModal()" class="absolute top-6 right-6 text-muted hover:text-red-500"><i class="fas fa-times"></i></button>
+            
+            <div class="flex flex-col items-center mb-8">
+                <div id="profile-avatar" class="w-24 h-24 rounded-3xl flex items-center justify-center text-3xl font-black text-white shadow-2xl mb-4 border-2 border-white/10" style="background:var(--accent)">?</div>
+                <h3 id="profile-username" class="text-2xl font-black tracking-tight text-white uppercase">Username</h3>
+                <span id="profile-status" class="text-[9px] font-bold text-emerald-400 uppercase tracking-[0.3em] mt-1">Identity Verified</span>
+            </div>
+
+            <div class="space-y-6">
+                <div class="space-y-2">
+                    <label class="text-[10px] font-black uppercase text-white/30 tracking-widest px-1">Professional Bio / Designation</label>
+                    <textarea id="profile-bio-input" class="w-full input min-h-[120px] resize-none text-sm leading-relaxed" placeholder="Tell the team about your mission..."></textarea>
+                </div>
+
+                <button onclick="saveProfile()" class="w-full btn-premium py-4 rounded-2xl text-xs font-black uppercase tracking-widest shadow-[0_10px_20px_rgba(99,102,241,0.2)]">
+                    Synchronize Profile
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Hover Card -->
+    <div id="user-hover-card" class="fixed pointer-events-none opacity-0 z-[200] w-64 glass-panel rounded-[2rem] p-6 border border-white/10 shadow-2xl transition-all duration-300 translate-y-2 scale-95">
+        <div class="flex items-center gap-4 mb-4">
+            <div id="hover-avatar" class="w-14 h-14 rounded-2xl flex items-center justify-center font-black text-white shadow-xl" style="background:var(--accent)">?</div>
+            <div class="flex flex-col">
+                <h4 id="hover-username" class="font-black text-sm uppercase text-white tracking-tight">Username</h4>
+                <div class="flex items-center gap-1.5 mt-0.5">
+                    <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
+                    <span id="hover-status" class="text-[8px] font-bold text-emerald-400 uppercase tracking-widest">Online</span>
+                </div>
+            </div>
+        </div>
+        <div class="space-y-3">
+            <div class="h-px bg-white/5"></div>
+            <p id="hover-bio" class="text-[10px] text-white/60 leading-relaxed italic">Neural interface active...</p>
+            <div class="flex items-center gap-2 pt-1">
+                <span class="text-[8px] font-black uppercase text-indigo-400/50 tracking-widest">Dept: Engineering</span>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

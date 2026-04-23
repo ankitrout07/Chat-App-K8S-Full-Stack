@@ -622,6 +622,88 @@ function jumpToMessage(id) {
     }
 }
 
+// --- PROFILE & HOVER CARD ---
+function openProfileModal() {
+    if (!authUser) return openAuthModal();
+    const modal = document.getElementById('profile-modal');
+    document.getElementById('profile-username').innerText = authUser.username;
+    document.getElementById('profile-bio-input').value = authUser.bio || '';
+    document.getElementById('profile-avatar').innerText = authUser.username[0].toUpperCase();
+    modal.classList.remove('hidden');
+}
+
+function closeProfileModal() {
+    document.getElementById('profile-modal').classList.add('hidden');
+}
+
+function saveProfile() {
+    const bio = document.getElementById('profile-bio-input').value;
+    socket.emit('updateBio', { bio });
+    authUser.bio = bio;
+    localStorage.setItem('tunnel_auth_user', JSON.stringify(authUser));
+    toast('Neural profile synchronized');
+    closeProfileModal();
+}
+
+// Hover Card logic
+let hoverTimeout;
+document.addEventListener('mouseover', (e) => {
+    const trigger = e.target.closest('.user-profile-trigger');
+    if (trigger) {
+        clearTimeout(hoverTimeout);
+        const userId = trigger.dataset.userId;
+        const username = trigger.innerText;
+        showHoverCard(trigger, userId, username);
+    }
+});
+
+document.addEventListener('mouseout', (e) => {
+    if (e.target.closest('.user-profile-trigger')) {
+        hoverTimeout = setTimeout(hideHoverCard, 300);
+    }
+});
+
+function showHoverCard(trigger, userId, username) {
+    const card = document.getElementById('user-hover-card');
+    const rect = trigger.getBoundingClientRect();
+    
+    // Position card
+    card.style.left = `${rect.left}px`;
+    card.style.top = `${rect.top - 180}px`; // Adjust based on card height
+    
+    // Find user data
+    const user = allUsers.find(u => u.id == userId || u.username === username);
+    const isOnline = onlineUserIds.has(parseInt(userId));
+    
+    document.getElementById('hover-username').innerText = username === 'You' ? authUser.username : username;
+    document.getElementById('hover-avatar').innerText = (username === 'You' ? authUser.username : username)[0].toUpperCase();
+    document.getElementById('hover-bio').innerText = user?.bio || 'Neural interface active...';
+    
+    const statusDot = card.querySelector('.bg-emerald-500');
+    const statusText = document.getElementById('hover-status');
+    
+    if (isOnline) {
+        statusDot.className = 'w-1.5 h-1.5 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.5)]';
+        statusText.innerText = 'Online';
+        statusText.className = 'text-[8px] font-bold text-emerald-400 uppercase tracking-widest';
+    } else {
+        statusDot.className = 'w-1.5 h-1.5 bg-white/20 rounded-full';
+        statusText.innerText = 'Offline';
+        statusText.className = 'text-[8px] font-bold text-white/20 uppercase tracking-widest';
+    }
+
+    card.style.opacity = '1';
+    card.style.pointerEvents = 'auto';
+    card.style.transform = 'translateY(0) scale(1)';
+}
+
+function hideHoverCard() {
+    const card = document.getElementById('user-hover-card');
+    card.style.opacity = '0';
+    card.style.pointerEvents = 'none';
+    card.style.transform = 'translateY(2px) scale(0.95)';
+}
+
 let offset = 0;
 const limit = 50;
 let fetching = false;
@@ -696,7 +778,7 @@ function prependMessage(data, atTop = true) {
             <div class="avatar shadow-lg border border-white/5" style="background:${avatarColor}">${data.sender[0].toUpperCase()}</div>
             <div class="relative flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[75%]">
                 <div class="flex items-center gap-3 mb-1 px-1">
-                    ${!isMe ? `<span class="text-[10px] font-black uppercase text-indigo-400 tracking-widest">${data.sender}</span>` : ''}
+                    ${!isMe ? `<span class="text-[10px] font-black uppercase text-indigo-400 tracking-widest cursor-pointer hover:underline user-profile-trigger" data-user-id="${data.userId}">${data.sender}</span>` : `<span class="text-[10px] font-black uppercase text-white/40 tracking-widest cursor-pointer hover:underline user-profile-trigger" data-user-id="${data.userId}">You</span>`}
                     <span class="text-[9px] font-bold opacity-30 text-white uppercase tracking-tighter">${data.time}</span>
                 </div>
                 <div class="p-4 rounded-[1.5rem] shadow-xl ${isMe ? 'rounded-tr-none text-white' : 'rounded-tl-none'} glass border border-white/[0.03] transition-all" 
@@ -867,7 +949,7 @@ socket.on('chat message', (data) => {
                     </div>
                 ` : ''}
                 <div class="flex items-center gap-3 mb-1 px-1">
-                    ${!isMe ? `<span class="text-[10px] font-black uppercase text-indigo-400 tracking-widest">${data.sender}</span>` : ''}
+                    ${!isMe ? `<span class="text-[10px] font-black uppercase text-indigo-400 tracking-widest cursor-pointer hover:underline user-profile-trigger" data-user-id="${data.userId}">${data.sender}</span>` : `<span class="text-[10px] font-black uppercase text-white/40 tracking-widest cursor-pointer hover:underline user-profile-trigger" data-user-id="${data.userId}">You</span>`}
                     <span class="text-[9px] font-bold opacity-30 text-white uppercase tracking-tighter">${data.time}</span>
                 </div>
                 <div class="p-4 rounded-[1.5rem] shadow-xl ${isMe ? 'rounded-tr-none text-white' : 'rounded-tl-none'} glass border border-white/[0.03] transition-all" 

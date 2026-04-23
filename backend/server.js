@@ -90,6 +90,7 @@ async function runMigrations() {
         password_hash TEXT,
         google_id TEXT UNIQUE,
         avatar_url TEXT,
+        bio TEXT DEFAULT 'Neural interface active...',
         preferred_theme TEXT DEFAULT 'dark',
         created_at TIMESTAMP DEFAULT NOW()
       )
@@ -165,6 +166,16 @@ async function runMigrations() {
     if (avatarCheck.rows.length === 0) {
       await db.query("ALTER TABLE users ADD COLUMN avatar_url TEXT");
       console.log('✅ Added avatar_url column to users table');
+    }
+
+    // Add bio column to users if missing
+    const bioCheck = await db.query(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_name = 'users' AND column_name = 'bio'
+    `);
+    if (bioCheck.rows.length === 0) {
+      await db.query("ALTER TABLE users ADD COLUMN bio TEXT DEFAULT 'Neural interface active...'");
+      console.log('✅ Added bio column to users table');
     }
 
     // Add group_id column to messages if it doesn't exist
@@ -250,13 +261,18 @@ function setupMemoryFallback() {
     query: async (text, params) => {
       console.log('☁️ Memory DB Query:', text);
       if (text.includes('INSERT INTO users')) {
-        const user = { id: Date.now(), username: params[0], password_hash: params[1], google_id: params[2] || null, avatar_url: params[3] || null, preferred_theme: 'dark' };
+        const user = { id: Date.now(), username: params[0], password_hash: params[1], google_id: params[2] || null, avatar_url: params[3] || null, bio: 'Neural interface active...', preferred_theme: 'dark' };
         memoryStore.users.push(user);
         return { rows: [user] };
       }
       if (text.includes('SELECT * FROM users WHERE google_id')) {
         const user = memoryStore.users.find(u => u.google_id === params[0] || u.username === params[1]);
         return { rows: user ? [user] : [] };
+      }
+      if (text.includes('UPDATE users SET bio = $1')) {
+        const user = memoryStore.users.find(u => u.id === params[1]);
+        if (user) { user.bio = params[0]; }
+        return { rows: [] };
       }
       if (text.includes('UPDATE users SET google_id')) {
         const user = memoryStore.users.find(u => u.id === params[2]);
@@ -806,6 +822,17 @@ io.on('connection', (socket) => {
         } catch (err) {
             console.error('Add Member Error:', err);
             socket.emit('error', { message: 'Failed to add member to group' });
+        }
+    });
+
+    // Handle bio update
+    socket.on('updateBio', async ({ bio }) => {
+        try {
+            await db.query('UPDATE users SET bio = $1 WHERE id = $2', [bio, socket.user.id]);
+            socket.user.bio = bio;
+            console.log(`👤 Bio updated for ${socket.user.username}`);
+        } catch (err) {
+            console.error('Bio Update Error:', err);
         }
     });
 
