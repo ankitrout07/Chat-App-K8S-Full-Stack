@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS messages (
   time TEXT NOT NULL,
   room TEXT NOT NULL DEFAULT 'general',
   group_id INT REFERENCES groups(id) ON DELETE CASCADE,
+  parent_id INT REFERENCES messages(id) ON DELETE CASCADE,
   delivered_at TIMESTAMP NULL,
   read_at TIMESTAMP NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

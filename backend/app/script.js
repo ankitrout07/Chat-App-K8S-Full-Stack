@@ -4,6 +4,7 @@ let allUsers = [];
 let allGroups = [];
 let currentRoom = 'general';
 let currentGroupId = null;
+let replyingTo = null; // { id, sender, text }
 
 const themes = {
     dark: { 
@@ -228,13 +229,28 @@ function sendMessage() {
             text: inputDom.value, 
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             room: currentRoom,
-            groupId: currentGroupId
+            groupId: currentGroupId,
+            parentId: replyingTo ? replyingTo.id : null
         };
         
         socket.emit('chat message', payload);
         inputDom.value = '';
+        cancelReply();
         socket.emit('typing', { user: currentUser, isTyping: false, room: currentRoom });
     }
+}
+
+function setReply(msgId, sender, text) {
+    replyingTo = { id: msgId, sender, text };
+    document.getElementById('reply-user').innerText = sender;
+    document.getElementById('reply-text').innerText = text;
+    document.getElementById('reply-preview').classList.remove('hidden');
+    document.getElementById('input').focus();
+}
+
+function cancelReply() {
+    replyingTo = null;
+    document.getElementById('reply-preview').classList.add('hidden');
 }
 
 function parseMessageContent(text) {
@@ -638,10 +654,18 @@ socket.on('chat message', (data) => {
     } else {
         // Regular user message
         const avatarColor = isMe ? 'var(--accent)' : '#1e293b';
-        msgEl.className = `flex gap-4 ${isMe ? 'flex-row-reverse' : 'flex-row'} group message-anim`;
+        const hasParent = data.parentId != null;
+        
+        msgEl.className = `flex gap-4 ${isMe ? 'flex-row-reverse' : 'flex-row'} group message-anim ${hasParent ? 'opacity-90' : ''}`;
         msgEl.innerHTML = `
             <div class="avatar shadow-lg border border-white/5" style="background:${avatarColor}">${data.sender[0].toUpperCase()}</div>
             <div class="relative flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[75%]">
+                ${hasParent ? `
+                    <div class="flex items-center gap-2 mb-1 px-2 py-1 rounded-lg bg-white/[0.02] border border-white/[0.05] text-[9px] text-muted italic">
+                        <i class="fas fa-reply scale-x-[-1] opacity-40"></i>
+                        Threaded Response
+                    </div>
+                ` : ''}
                 <div class="flex items-center gap-3 mb-1 px-1">
                     ${!isMe ? `<span class="text-[10px] font-black uppercase text-indigo-400 tracking-widest">${data.sender}</span>` : ''}
                     <span class="text-[9px] font-bold opacity-30 text-white uppercase tracking-tighter">${data.time}</span>
@@ -658,6 +682,7 @@ socket.on('chat message', (data) => {
                         <button onclick="addReaction(${data.id}, '👍')" class="hover:scale-125 transition-transform">👍</button>
                         <button onclick="addReaction(${data.id}, '❤️')" class="hover:scale-125 transition-transform">❤️</button>
                         <button onclick="addReaction(${data.id}, '🔥')" class="hover:scale-125 transition-transform">🔥</button>
+                        <button onclick="setReply(${data.id}, '${data.sender}', '${data.text.replace(/'/g, "\\'")}')" class="hover:text-indigo-400 transition-colors ml-1"><i class="fas fa-reply text-[10px]"></i></button>
                         ${isMe ? `<button onclick="deleteMessage(${data.id})" class="hover:text-red-500 transition-colors ml-1"><i class="fas fa-trash-alt text-[10px]"></i></button>` : ''}
                     </div>
                 </div>

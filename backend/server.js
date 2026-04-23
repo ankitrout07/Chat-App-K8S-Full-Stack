@@ -95,6 +95,16 @@ async function runMigrations() {
       console.log('✅ Added group_id FK to messages');
     }
 
+    // Add parent_id column for threaded replies
+    const parentCheck = await db.query(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_name = 'messages' AND column_name = 'parent_id'
+    `);
+    if (parentCheck.rows.length === 0) {
+      await db.query('ALTER TABLE messages ADD COLUMN parent_id INT REFERENCES messages(id) ON DELETE CASCADE');
+      console.log('✅ Added parent_id FK to messages for threading');
+    }
+
     // Seed default channels if none exist
     const existing = await db.query('SELECT COUNT(*) FROM groups');
     if (parseInt(existing.rows[0].count) === 0) {
@@ -285,7 +295,7 @@ app.get('/messages', async (req, res) => {
     const room = req.query.room || 'general';
     try {
         const result = await db.query(
-            `SELECT m.id, m.sender, m.text, m.time, m.delivered_at, m.read_at, m.created_at, m.user_id, m.room,
+            `SELECT m.id, m.sender, m.text, m.time, m.delivered_at, m.read_at, m.created_at, m.user_id, m.room, m.parent_id,
             (SELECT json_agg(re) FROM (SELECT r.emoji, r.user_id, u.username FROM reactions r JOIN users u ON r.user_id = u.id WHERE r.message_id = m.id) re) as reactions
             FROM messages m WHERE m.room = $1 ORDER BY m.created_at DESC LIMIT $2 OFFSET $3`,
             [room, limit, offset]
@@ -615,13 +625,15 @@ io.on('connection', (socket) => {
 
         try {
             const groupId = data.groupId || null;
+            const parentId = data.parentId || null;
             const res = await db.query(
-                'INSERT INTO messages (user_id, sender, text, time, room, group_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, created_at',
-                [socket.user.id, socket.user.username, data.text, data.time, room, groupId]
+                'INSERT INTO messages (user_id, sender, text, time, room, group_id, parent_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, created_at',
+                [socket.user.id, socket.user.username, data.text, data.time, room, groupId, parentId]
             );
             payload.id = res.rows[0].id;
             payload.created_at = res.rows[0].created_at;
             payload.groupId = groupId;
+            payload.parentId = parentId;
             
             // BROADCAST: Send the saved message to everyone in the room
             io.to(room).emit('chat message', payload);
