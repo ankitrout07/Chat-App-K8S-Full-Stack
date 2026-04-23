@@ -1,101 +1,96 @@
-# 🚀 How to Run TunnelPro
+# 🚀 Launching TunnelPro: Quantum Chat
 
-TunnelPro is a full-stack, real-time chat application optimized for high-performance messaging and Kubernetes scalability.
+TunnelPro is a high-performance, real-time messaging platform designed for cloud-native scalability. This guide will help you get the system up and running in minutes.
 
 ---
 
 ## 🛠 Prerequisites
 
-Ensure you have the following installed:
-- **Node.js** (v16+)
+Ensure your environment has the following tools:
+- **Node.js** (v22+)
 - **PostgreSQL** (v14+)
-- **Docker** & **Kubectl** (if deploying to K8S)
-- **Make** (standard on Mac/Linux)
+- **Redis** (Optional, for clustering)
+- **Docker** & **Kubectl** (For Kubernetes deployment)
+- **Make** (For automated operations)
 
 ---
 
-## ⚡ Quick Start (The One-Liner Way)
+## ⚡ Quick Start (Local Development)
 
-If you have a local PostgreSQL database named `chatapp` ready:
+The fastest way to start the engine is using the `Makefile`.
 
-1. **Install Dependencies**
-   ```bash
-   make install
-   ```
+### 1. Initialize the Environment
+Install all backend dependencies:
+```bash
+make install
+```
 
-2. **Initialize Database Schema**
-   ```bash
-   make db-init
-   ```
+### 2. Database Preparation
+Ensure PostgreSQL is running and you have a database named `chatapp`. Then initialize the schema:
+```bash
+make db-init
+```
 
-3. **Run Locally**
-   ```bash
-   make run
-   ```
-   *Access at: [http://localhost:3000](http://localhost:3000)*
+### 3. Launch the Protocol
+Start the local server:
+```bash
+make run
+```
+*Access the interface at: [http://localhost:3000](http://localhost:3000)*
 
 ---
 
-## ☸️ Kubernetes Deployment
+## ☸️ Kubernetes (AKS/Local) Deployment
 
-To deploy to a K8S cluster (local `minikube` or remote `AKS/GKE`):
+Deploying TunnelPro to a cluster is streamlined through the `Makefile`.
 
-1. **Apply Manifests**
+1. **Deploy the Stack**:
    ```bash
    make k8s-deploy
    ```
 
-2. **Check Status**
+2. **Verify Cluster Health**:
    ```bash
    make k8s-status
    ```
 
-3. **Access via Port-Forward**
+3. **Access the Tunnel**:
    ```bash
    make k8s-proxy
    ```
-   *Access at: [http://localhost:3000](http://localhost:3000)*
+   *Access via proxy at: [http://localhost:3000](http://localhost:3000)*
 
 ---
 
-## ☁️ Deploying to an Azure VM
+## 💬 Operational Testing
 
-If you are deploying to a static Azure VM (Ubuntu/Debian):
+Once launched, verify the following core features:
 
-1. **Clone & Setup Environment**
-   ```bash
-   git clone https://github.com/ankitrout07/Chat-App-K8S-Full-Stack.git
-   cd Chat-App-K8S-Full-Stack
-   make install
-   ```
-
-2. **Configure External Access**
-   Ensure port `3000` is open in your Azure Network Security Group (NSG).
-
-3. **Launch**
-   ```bash
-   make run
-   ```
-   *Access from any PC via: `http://<VM_PUBLIC_IP>:3000`*
+1. **Identify**: Click **Identify** to register or login to your persistent profile.
+2. **Quantum Bridge**: Switch between `#general`, `#dev-ops`, and `#k8s-logs` channels in the sidebar.
+3. **Direct Decryption**: Click on an online user in the "Direct Messages" section to start a private session.
+4. **System Intelligence**: Visit the **Monitoring** tab to see real-time K8s pod health and memory usage.
+5. **Appearance**: Use the **Appearance** tab to toggle between Dark, Light, and Solarized themes.
 
 ---
 
-## 💬 Features to Test
+## ☁️ Production Deployment (Azure VM)
 
-1. **Registration**: Create an account via the Sign-In modal.
-2. **Global Channels**: Chat in `#general` or `#dev-ops`.
-3. **Private DMs**: Click on any online user in the sidebar to start a private one-on-one session.
-4. **Monitoring**: View the **Cluster Pulse** animation and live metrics in the Monitoring tab.
-5. **Themes**: Toggle between Dark, Light, and Solarized modes via the Sidebar.
+For a standard Linux VM deployment:
+1. Clone the repository.
+2. Run `make install`.
+3. Open port `3000` in your Azure NSG.
+4. Run `make run`.
 
 ---
 
 ## 🆘 Troubleshooting
 
-- **Database Connection Failed**: Verify your PG credentials and ensure the `chatapp` database exists.
-- **WebSocket Handshake Error**: If behind a proxy (Nginx), ensure `Upgrade` and `Connection` headers are passed.
-- **Redis Not Found**: The app will automatically fall back to local memory if Redis isn't running, but clustering won't be available.
+- **Protocol Connection Error**: Ensure the `.env` file in the `backend/` directory has correct database credentials.
+- **Heartbeat Flatline**: If the monitoring dashboard shows no stats, verify the backend is connected to the Redis service.
+- **WebSocket Handshake**: If using an Ingress controller, ensure WebSocket support (Upgrade headers) is enabled.
 
 ---
+
 > [!TIP]
-> Use `make help` to see a full list of all available commands.
+> Run `make help` at any time to see the full list of operational commands.
