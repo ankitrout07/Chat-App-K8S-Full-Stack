@@ -8,28 +8,34 @@ let replyingTo = null; // { id, sender, text }
 
 const themes = {
     dark: { 
-        '--bg-main': '#0a0f1e', '--panel': 'rgba(16, 24, 39, 0.7)', '--text-main': '#f1f5f9', 
-        '--accent': '#6366f1', '--bubble-me': '#6366f1', '--bubble-them': 'rgba(30, 41, 59, 0.8)' 
+        '--bg-deep': '#050811', '--bg-main': '#0a0f1e', '--panel': 'rgba(16, 24, 39, 0.7)', 
+        '--text-main': '#f1f5f9', '--accent': '#6366f1', '--accent-glow': 'rgba(99, 102, 241, 0.3)',
+        '--bubble-me': '#6366f1', '--bubble-them': 'rgba(30, 41, 59, 0.8)' 
     },
     light: { 
-        '--bg-main': '#f8fafc', '--panel': 'rgba(255, 255, 255, 0.9)', '--text-main': '#0f172a', 
-        '--accent': '#4f46e5', '--bubble-me': '#4f46e5', '--bubble-them': 'rgba(241, 245, 249, 1)' 
+        '--bg-deep': '#f1f5f9', '--bg-main': '#f8fafc', '--panel': 'rgba(255, 255, 255, 0.9)', 
+        '--text-main': '#0f172a', '--accent': '#4f46e5', '--accent-glow': 'rgba(79, 70, 229, 0.2)',
+        '--bubble-me': '#4f46e5', '--bubble-them': 'rgba(241, 245, 249, 1)' 
     },
     solar: { 
-        '--bg-main': '#002b36', '--panel': 'rgba(7, 54, 66, 0.8)', '--text-main': '#839496', 
-        '--accent': '#b58900', '--bubble-me': '#b58900', '--bubble-them': 'rgba(7, 54, 66, 1)' 
+        '--bg-deep': '#00212b', '--bg-main': '#002b36', '--panel': 'rgba(7, 54, 66, 0.8)', 
+        '--text-main': '#839496', '--accent': '#b58900', '--accent-glow': 'rgba(181, 137, 0, 0.3)',
+        '--bubble-me': '#b58900', '--bubble-them': 'rgba(7, 54, 66, 1)' 
     },
     cyberpunk: {
-        '--bg-main': '#0c001a', '--panel': 'rgba(20, 0, 40, 0.7)', '--text-main': '#00ffcc', 
-        '--accent': '#ff00ff', '--bubble-me': '#ff00ff', '--bubble-them': 'rgba(40, 0, 80, 0.8)'
+        '--bg-deep': '#0c001a', '--bg-main': '#1a0033', '--panel': 'rgba(20, 0, 40, 0.7)', 
+        '--text-main': '#00ffcc', '--accent': '#ff00ff', '--accent-glow': 'rgba(255, 0, 255, 0.4)',
+        '--bubble-me': '#ff00ff', '--bubble-them': 'rgba(40, 0, 80, 0.8)'
     },
     space: {
-        '--bg-main': '#000000', '--panel': 'rgba(10, 10, 20, 0.8)', '--text-main': '#ffffff', 
-        '--accent': '#0ea5e9', '--bubble-me': '#0ea5e9', '--bubble-them': 'rgba(20, 20, 30, 1)'
+        '--bg-deep': '#000000', '--bg-main': '#0a0a0a', '--panel': 'rgba(10, 10, 20, 0.8)', 
+        '--text-main': '#ffffff', '--accent': '#0ea5e9', '--accent-glow': 'rgba(14, 165, 233, 0.3)',
+        '--bubble-me': '#0ea5e9', '--bubble-them': 'rgba(20, 20, 30, 1)'
     },
     emerald: {
-        '--bg-main': '#01160a', '--panel': 'rgba(2, 40, 20, 0.7)', '--text-main': '#dcfce7', 
-        '--accent': '#10b981', '--bubble-me': '#10b981', '--bubble-them': 'rgba(5, 50, 30, 0.8)'
+        '--bg-deep': '#010b01', '--bg-main': '#021a02', '--panel': 'rgba(2, 40, 20, 0.7)', 
+        '--text-main': '#dcfce7', '--accent': '#10b981', '--accent-glow': 'rgba(16, 185, 129, 0.3)',
+        '--bubble-me': '#10b981', '--bubble-them': 'rgba(5, 50, 30, 0.8)'
     }
 };
 
@@ -40,6 +46,14 @@ const SVGS = {
 };
 
 function applyTheme(name) {
+    const themeData = themes[name] || themes.dark;
+    
+    // Apply CSS variables to root
+    const root = document.documentElement;
+    Object.entries(themeData).forEach(([prop, value]) => {
+        root.style.setProperty(prop, value);
+    });
+
     const themeClasses = ['dark', 'light', 'solar', 'cyberpunk', 'space', 'emerald'].map(t => 'theme-' + t);
     
     // Remove existing theme classes
@@ -52,7 +66,7 @@ function applyTheme(name) {
     localStorage.setItem('chat-theme', name);
     
     // Persist to DB if logged in
-    if (authUser) {
+    if (authUser && socket.connected) {
         socket.emit('updateThemePreference', { theme: name });
     }
     

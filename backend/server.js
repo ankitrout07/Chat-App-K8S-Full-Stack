@@ -902,8 +902,8 @@ io.on('connection', (socket) => {
             socket.emit('pinnedMessages', result.rows);
         } catch (err) { console.error('Fetch Pins Error:', err); }
     });
-44: 
-45:     // new chat message - insert into db (with ChatOps bot interception)
+
+    // new chat message - insert into db (with ChatOps bot interception)
     socket.on('chat message', async (data) => {
         const room = data.room || 'general';
         const text = (data.text || '').trim();
