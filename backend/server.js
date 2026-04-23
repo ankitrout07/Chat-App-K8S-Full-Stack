@@ -111,7 +111,7 @@ async function runMigrations() {
       await db.query("INSERT INTO groups (name, created_by) VALUES ('general', 'system'), ('dev-ops', 'system'), ('k8s-logs', 'system') ON CONFLICT DO NOTHING");
       console.log('✅ Default groups seeded');
     }
-    }
+
 
     // Ensure group_members table exists
     await db.query(`
