@@ -109,6 +109,19 @@ function updateAuthUI() {
     }
 }
 
+function connectSocket() {
+    if (!authToken) return;
+    socket.auth = { token: authToken };
+    socket.connect();
+    
+    // Initial room join
+    setTimeout(async () => {
+        await fetchGroups();
+        const generalGroup = allGroups.find(g => g.name === 'general');
+        joinRoom('general', generalGroup?.id || null);
+    }, 500);
+}
+
 function logout() {
     localStorage.removeItem('tunnel_auth_token');
     localStorage.removeItem('tunnel_auth_user');
@@ -128,10 +141,17 @@ function initGoogleAuth() {
         callback: handleGoogleCallback
     });
     
+    // We render the standard button into a hidden div so we can trigger it if needed,
+    // or just use it for the One Tap experience.
     google.accounts.id.renderButton(
-        document.getElementById("google-login-btn"),
+        document.getElementById("google-login-btn-hidden"),
         { theme: "outline", size: "large", width: 320 }
     );
+}
+
+function triggerGoogleLogin() {
+    // This will trigger the Google Login popup/prompt
+    google.accounts.id.prompt();
 }
 
 async function handleGoogleCallback(response) {
@@ -922,15 +942,12 @@ document.getElementById('auth-form').addEventListener('submit', async (e) => {
                 authUser = data.user;
                 localStorage.setItem('tunnel_auth_token', authToken);
                 localStorage.setItem('tunnel_auth_user', JSON.stringify(authUser));
-                socket.auth = { token: authToken };
-                socket.connect();
+                
                 updateAuthUI();
+                connectSocket();
                 closeAuthModal();
                 toast('Welcome back, ' + authUser.username);
                 fetchAndRenderUsers();
-                await fetchGroups();
-                const generalGroup = allGroups.find(g => g.name === 'general');
-                joinRoom('general', generalGroup?.id || null);
             } else {
                 toast('Resource created. Please login.');
                 toggleAuthMode();
@@ -987,13 +1004,11 @@ applyTheme(savedTheme);
 
 // Load groups first, then auto-join
 (async () => {
-    await fetchGroups();
     if (authToken && authUser) {
         updateAuthUI();
-        socket.auth = { token: authToken };
-        socket.connect();
-        const generalGroup = allGroups.find(g => g.name === 'general');
-        joinRoom('general', generalGroup?.id || null);
+        connectSocket();
+    } else {
+        await fetchGroups();
     }
 })();
 
