@@ -219,6 +219,39 @@ async function deleteGroup(id, name) {
     }
 }
 
+// --- INVITE LOGIC ---
+function openInviteModal() {
+    if (!currentGroupId) return toast('Join a group channel to invite members');
+    document.getElementById('invite-group-name').innerText = '#' + currentRoom;
+    const select = document.getElementById('invite-user-select');
+    select.innerHTML = allUsers
+        .filter(u => u.id !== authUser?.id)
+        .map(u => `<option value="${u.id}">${u.username}</option>`)
+        .join('');
+    
+    document.getElementById('invite-modal').classList.remove('hidden');
+}
+
+function closeInviteModal() {
+    document.getElementById('invite-modal').classList.add('hidden');
+}
+
+function sendInvite() {
+    const select = document.getElementById('invite-user-select');
+    const targetUserId = parseInt(select.value);
+    const targetUsername = select.options[select.selectedIndex].text;
+
+    socket.emit('addMemberToGroup', {
+        groupId: currentGroupId,
+        groupName: currentRoom,
+        targetUserId,
+        targetUsername
+    });
+    
+    closeInviteModal();
+    toast(`Invite sent to ${targetUsername}`);
+}
+
 // --- CORE CHAT LOGIC ---
 function sendMessage() {
     const inputDom = document.getElementById('input');
@@ -351,10 +384,13 @@ function joinRoom(room, groupId) {
     loadMessages();
     showView('home');
     
-    const isDM = room.startsWith('dm_');
-    const display = isDM ? '@' + room.split('_').slice(1).join(' & ') : room;
-    document.getElementById('active-room-display').innerText = display;
-    document.getElementById('chat-header-icon').innerText = isDM ? '@' : '#';
+    document.getElementById('active-room-display').innerText = room;
+    document.getElementById('chat-header-icon').innerText = room.startsWith('dm_') ? '@' : '#';
+    
+    const inviteBtn = document.getElementById('invite-btn');
+    if (inviteBtn) {
+        inviteBtn.style.display = room.startsWith('dm_') ? 'none' : 'flex';
+    }
     
     document.querySelectorAll('.sidebar-item').forEach(el => {
         const roomAttr = el.getAttribute('data-room');
@@ -754,6 +790,15 @@ socket.on('reaction', (data) => {
             });
         }
     }
+});
+
+socket.on('addedToGroup', (data) => {
+    showNotification({ 
+        sender: "System Intelligence", 
+        text: `You have been granted access to #${data.groupName} by ${data.inviter}`,
+        isBot: true 
+    });
+    fetchGroups(); // Refresh group list to show new channel
 });
 
 socket.on('clear chat', () => {

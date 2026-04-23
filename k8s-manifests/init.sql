@@ -48,3 +48,12 @@ INSERT INTO groups (name, created_by) VALUES
   ('dev-ops', 'system'),
   ('k8s-logs', 'system')
 ON CONFLICT (name) DO NOTHING;
+
+-- Group Members Table
+CREATE TABLE IF NOT EXISTS group_members (
+    id SERIAL PRIMARY KEY,
+    group_id INT REFERENCES groups(id) ON DELETE CASCADE,
+    user_id INT REFERENCES users(id) ON DELETE CASCADE,
+    joined_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(group_id, user_id)
+);

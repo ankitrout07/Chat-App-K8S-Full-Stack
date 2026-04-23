@@ -111,6 +111,19 @@ async function runMigrations() {
       await db.query("INSERT INTO groups (name, created_by) VALUES ('general', 'system'), ('dev-ops', 'system'), ('k8s-logs', 'system') ON CONFLICT DO NOTHING");
       console.log('✅ Default groups seeded');
     }
+    }
+
+    // Ensure group_members table exists
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS group_members (
+        id SERIAL PRIMARY KEY,
+        group_id INT REFERENCES groups(id) ON DELETE CASCADE,
+        user_id INT REFERENCES users(id) ON DELETE CASCADE,
+        joined_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(group_id, user_id)
+      )
+    `);
+    console.log('✅ Group members table ready');
   } catch (err) {
     console.warn('⚠️ Migration warning (non-fatal):', err.message);
   }
@@ -318,8 +331,15 @@ io.use((socket, next) => {
     });
 });
 
-// Presence tracking (userId -> set of socketIds)
+// Presence tracking (userId -> data)
 const onlineUsers = new Map();
+
+// Helper to get socket by user ID
+function getSocketsByUserId(userId) {
+    const data = onlineUsers.get(userId);
+    if (!data) return [];
+    return Array.from(data.sockets).map(sid => io.sockets.sockets.get(sid)).filter(s => !!s);
+}
 
 // ─────────────────────────────────────────────────
 // 🤖 CHATOPS BOT ENGINE
@@ -561,6 +581,31 @@ io.on('connection', (socket) => {
     // Propagate group deletion
     socket.on('group:delete', (data) => {
         io.emit('group:deleted', data);
+    });
+
+    // Handle adding members to a group
+    socket.on('addMemberToGroup', async ({ groupId, groupName, targetUserId, targetUsername }) => {
+        try {
+            // 1. Persist to DB
+            await db.query(
+                'INSERT INTO group_members (group_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+                [groupId, targetUserId]
+            );
+
+            // 2. Real-time Join: If user is online, force them to join the room
+            const targetSockets = getSocketsByUserId(targetUserId);
+            targetSockets.forEach(s => {
+                s.join(groupName);
+                s.emit('addedToGroup', { groupName, groupId, inviter: socket.user.username });
+            });
+            
+            // 3. Confirm back to the requester
+            socket.emit('memberAddedSuccess', { targetUsername, groupName });
+            console.log(`🤝 User ${targetUsername} added to group ${groupName} by ${socket.user.username}`);
+        } catch (err) {
+            console.error('Add Member Error:', err);
+            socket.emit('error', { message: 'Failed to add member to group' });
+        }
     });
 
     // broadcast typing notifications to everyone in the room except the originator
