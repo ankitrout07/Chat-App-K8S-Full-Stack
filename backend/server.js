@@ -11,6 +11,7 @@ const { OAuth2Client } = require('google-auth-library');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const rateLimit = require('express-rate-limit');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'tunnel-pro-secret-key-1337';
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
@@ -24,6 +25,24 @@ const app = express();
 const compression = require('compression');
 app.use(compression());
 app.use(express.json());
+
+// --- RATE LIMITING ---
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // limit each IP to 10 login requests per window
+  message: { error: 'Too many login attempts, please try again after 15 minutes' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5, // limit each IP to 5 registration requests per hour
+  message: { error: 'Too many accounts created from this IP, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 const oneDay = 86400000;
 app.use(express.static(path.join(__dirname, 'app'), { maxAge: oneDay }));
 app.use('/uploads', express.static(path.join(__dirname, 'app', 'uploads')));
@@ -418,7 +437,7 @@ app.get('/', (req, res) => {
 });
 
 // --- AUTH ROUTES ---
-app.post('/register', async (req, res) => {
+app.post('/register', registerLimiter, async (req, res) => {
     const { username, password } = req.body;
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
@@ -432,7 +451,7 @@ app.post('/register', async (req, res) => {
     }
 });
 
-app.post('/login', async (req, res) => {
+app.post('/login', loginLimiter, async (req, res) => {
     const { username, password } = req.body;
     try {
         const result = await db.query('SELECT * FROM users WHERE username = $1', [username]);

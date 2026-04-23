@@ -27,6 +27,13 @@ jobs:
           npm install
           npm run build --if-present
 
+      - name: Run Snyk to check for vulnerabilities
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high
+
       - name: Upload artifact for deployment
         uses: actions/upload-artifact@v4
         with:
