@@ -32,6 +32,7 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
+          directory: backend
           args: --severity-threshold=high
 
       - name: Upload artifact for deployment
