@@ -72,6 +72,9 @@ jobs:
             echo "Creating Web App..."
             az webapp create --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --plan ${{ env.AZURE_PLAN_NAME }} --runtime "NODE:22-lts"
           fi
+          
+          # Enable remote build (npm install) on Azure
+          az webapp config appsettings set --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --settings SCM_DO_BUILD_DURING_DEPLOYMENT=true
 
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v3
