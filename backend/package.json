@@ -17,6 +17,7 @@
     "pg": "^8.11.0",
     "redis": "^4.6.10",
     "socket.io": "^4.6.1",
-    "express-rate-limit": "^7.1.5"
+    "express-rate-limit": "^7.1.5",
+    "helmet": "^7.1.0"
   }
 }

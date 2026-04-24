@@ -1,4 +1,18 @@
 const socket = io({ autoConnect: false });
+
+// Cache common DOM elements for performance
+const DOM = {
+    messages: document.getElementById('messages'),
+    input: document.getElementById('input'),
+    activeRoom: document.getElementById('active-room-display'),
+    sidebarUsers: document.getElementById('sidebar-users'),
+    authNav: document.getElementById('auth-nav'),
+    loginBtn: document.getElementById('login-btn'),
+    navUsername: document.getElementById('nav-username'),
+    navStatusEmoji: document.getElementById('nav-status-emoji'),
+    navStatusText: document.getElementById('nav-status-text'),
+    userAvatarMini: document.getElementById('user-avatar-mini')
+};
 let onlineUserIds = new Set();
 let allUsers = [];
 let allGroups = [];
@@ -103,16 +117,17 @@ function toggleAuthMode() {
 
 function updateAuthUI() {
     if (authUser) {
-        document.getElementById('auth-nav').classList.remove('hidden');
-        document.getElementById('login-btn').classList.add('hidden');
-        document.getElementById('nav-username').innerText = authUser.username;
+        if (DOM.authNav) DOM.authNav.classList.remove('hidden');
+        if (DOM.loginBtn) DOM.loginBtn.classList.add('hidden');
+        if (DOM.navUsername) DOM.navUsername.innerText = authUser.username;
         
-        const avatarEl = document.getElementById('user-avatar-mini');
-        if (authUser.avatar_url) {
-            avatarEl.innerHTML = `<img src="${authUser.avatar_url}" class="w-full h-full rounded-xl object-cover shadow-inner">`;
-        } else {
-            avatarEl.innerText = authUser.username[0].toUpperCase();
-            avatarEl.style.background = 'var(--accent)';
+        if (DOM.userAvatarMini) {
+            if (authUser.avatar_url) {
+                DOM.userAvatarMini.innerHTML = `<img src="${authUser.avatar_url}" class="w-full h-full rounded-xl object-cover shadow-inner">`;
+            } else {
+                DOM.userAvatarMini.innerText = authUser.username[0].toUpperCase();
+                DOM.userAvatarMini.style.background = 'var(--accent)';
+            }
         }
         
         currentUser = authUser.username;
@@ -121,11 +136,11 @@ function updateAuthUI() {
         if (authUser.preferred_theme) {
             applyTheme(authUser.preferred_theme);
         }
-        document.getElementById('nav-status-emoji').innerText = authUser.status_emoji || '🟢';
-        document.getElementById('nav-status-text').innerText = authUser.status_text || 'Available';
+        if (DOM.navStatusEmoji) DOM.navStatusEmoji.innerText = authUser.status_emoji || '🟢';
+        if (DOM.navStatusText) DOM.navStatusText.innerText = authUser.status_text || 'Available';
     } else {
-        document.getElementById('auth-nav').classList.add('hidden');
-        document.getElementById('login-btn').classList.remove('hidden');
+        if (DOM.authNav) DOM.authNav.classList.add('hidden');
+        if (DOM.loginBtn) DOM.loginBtn.classList.remove('hidden');
         currentUser = null;
     }
 }
@@ -902,7 +917,8 @@ async function loadMessages(isLoadMore = false) {
 }
 
 function prependMessage(data, atTop = true) {
-    const messages = document.getElementById('messages');
+    if (!DOM.messages) return;
+    const messages = DOM.messages;
     const emptyState = document.getElementById('empty-state');
     if (emptyState) emptyState.style.display = 'none';
 
@@ -1098,15 +1114,9 @@ socket.on('group:deleted', (data) => {
 
 socket.on('chat message', (data) => {
     if (data.room !== currentRoom) return;
-                        ${isMe ? `<button onclick="deleteMessage(${data.id})" class="hover:text-red-500 transition-colors ml-1"><i class="fas fa-trash-alt text-[10px]"></i></button>` : ''}
-                    </div>
-                </div>
-                ${data.is_pinned ? `<div class="absolute -top-2 -right-2 w-5 h-5 bg-amber-500/20 text-amber-400 rounded-full flex items-center justify-center border border-amber-500/30 shadow-lg"><i class="fas fa-thumbtack text-[8px]"></i></div>` : ''}
-            </div>`;
-    }
-
-    messages.scrollTop = messages.scrollHeight;
-    updateMessageCount();
+    prependMessage(data, false);
+    scrollToBottom();
+});
 
     // 📣 NOTIFICATION SYSTEM
     if (!isMe && !isCommand) {
@@ -1365,14 +1375,12 @@ applyTheme(savedTheme);
 (async () => {
     initCharts();
     if (authToken && authUser) {
-        updateAuthUI();
         connectSocket();
     } else {
         await fetchGroups();
     }
 })();
 
-updateAuthUI();
 fetchAndRenderUsers();
 showView('home');
 requestNotifyPermission();

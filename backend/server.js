@@ -12,6 +12,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const rateLimit = require('express-rate-limit');
+const helmet = require('helmet');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'tunnel-pro-secret-key-1337';
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
@@ -22,6 +23,18 @@ if (GOOGLE_CLIENT_ID) {
     console.warn('⚠️ GOOGLE_CLIENT_ID missing from environment variables. Google Auth will not function.');
 }
 const app = express();
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+            "script-src": ["'self'", "'unsafe-inline'", "https://cdn.socket.io", "https://cdn.jsdelivr.net", "https://accounts.google.com"],
+            "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com"],
+            "font-src": ["'self'", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com"],
+            "img-src": ["'self'", "data:", "https://source.boringavatars.com", "https://lh3.googleusercontent.com", "https://cdn-icons-png.flaticon.com"],
+            "connect-src": ["'self'", "wss:", "https://accounts.google.com"]
+        },
+    },
+}));
 const compression = require('compression');
 app.use(compression());
 app.use(express.json());
