@@ -483,9 +483,10 @@ app.post('/register', registerLimiter, async (req, res) => {
     const { username, password } = req.body;
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
+        const avatarUrl = `https://source.boringavatars.com/beam/120/${encodeURIComponent(username)}?colors=264653,2a9d8f,e9c46a,f4a261,e76f51`;
         const result = await db.query(
-            'INSERT INTO users (username, password_hash) VALUES ($1, $2) RETURNING id, username, preferred_theme',
-            [username, hashedPassword]
+            'INSERT INTO users (username, password_hash, avatar_url) VALUES ($1, $2, $3) RETURNING id, username, preferred_theme, avatar_url',
+            [username, hashedPassword, avatarUrl]
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
@@ -504,7 +505,7 @@ app.post('/login', loginLimiter, async (req, res) => {
         if (!isMatch) return res.status(401).json({ error: 'Invalid credentials' });
         
         const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '24h' });
-        res.json({ token, user: { id: user.id, username: user.username, preferred_theme: user.preferred_theme } });
+        res.json({ token, user: { id: user.id, username: user.username, preferred_theme: user.preferred_theme, avatar_url: user.avatar_url } });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -614,9 +615,12 @@ app.get('/messages', async (req, res) => {
     const room = req.query.room || 'general';
     try {
         const result = await db.query(
-            `SELECT m.id, m.sender, m.text, m.time, m.delivered_at, m.read_at, m.created_at, m.user_id, m.room, m.parent_id,
+            `SELECT m.id, m.sender, m.text, m.time, m.delivered_at, m.read_at, m.created_at, m.user_id, m.room, m.parent_id, u.avatar_url,
             (SELECT json_agg(re) FROM (SELECT r.emoji, r.user_id, u.username FROM reactions r JOIN users u ON r.user_id = u.id WHERE r.message_id = m.id) re) as reactions
-            FROM messages m WHERE m.room = $1 ORDER BY m.created_at DESC LIMIT $2 OFFSET $3`,
+            FROM messages m 
+            LEFT JOIN users u ON m.user_id = u.id
+            WHERE m.room = $1 
+            ORDER BY m.created_at DESC LIMIT $2 OFFSET $3`,
             [room, limit, offset]
         );
         res.json(result.rows);
@@ -633,9 +637,10 @@ app.get('/search', async (req, res) => {
     try {
         // Using plainto_tsquery for easier fuzzy-ish matching or to_tsquery for advanced
         const result = await db.query(
-            `SELECT m.id, m.sender, m.text, m.time, m.room, m.created_at,
+            `SELECT m.id, m.sender, m.text, m.time, m.room, m.created_at, u.avatar_url,
              ts_rank(m.tsv, plainto_tsquery('english', $1)) as rank
              FROM messages m
+             LEFT JOIN users u ON m.user_id = u.id
              WHERE m.tsv @@ plainto_tsquery('english', $1)
              ORDER BY rank DESC, m.created_at DESC
              LIMIT 20`,
@@ -647,9 +652,11 @@ app.get('/search', async (req, res) => {
         // Fallback to ILIKE if tsvector fails or in memory mode
         try {
             const fallback = await db.query(
-                `SELECT id, sender, text, time, room, created_at 
-                 FROM messages WHERE text ILIKE $1 
-                 ORDER BY created_at DESC LIMIT 20`,
+                `SELECT m.id, m.sender, m.text, m.time, m.room, m.created_at, u.avatar_url 
+                 FROM messages m
+                 LEFT JOIN users u ON m.user_id = u.id
+                 WHERE m.text ILIKE $1 
+                 ORDER BY m.created_at DESC LIMIT 20`,
                 [`%${query}%`]
             );
             res.json(fallback.rows);
@@ -664,10 +671,18 @@ io.use((socket, next) => {
     const token = socket.handshake.auth.token;
     if (!token) return next(new Error('Authentication error: Token missing'));
 
-    jwt.verify(token, JWT_SECRET, (err, decoded) => {
+    jwt.verify(token, JWT_SECRET, async (err, decoded) => {
         if (err) return next(new Error('Authentication error: Invalid token'));
-        socket.user = decoded; // { id, username }
-        next();
+        
+        try {
+            const result = await db.query('SELECT avatar_url FROM users WHERE id = $1', [decoded.id]);
+            decoded.avatar_url = result.rows[0]?.avatar_url || null;
+            socket.user = decoded; // { id, username, avatar_url }
+            next();
+        } catch (dbErr) {
+            socket.user = decoded;
+            next();
+        }
     });
 });
 
@@ -911,8 +926,8 @@ io.on('connection', (socket) => {
 
     // Add to online tracking
     if (!onlineUsers.has(userId)) {
-        onlineUsers.set(userId, { sockets: new Set(), ip: userIp, username });
-        io.emit('user:online', { userId, username, ip: userIp });
+        onlineUsers.set(userId, { sockets: new Set(), ip: userIp, username, avatar_url: socket.user.avatar_url });
+        io.emit('user:online', { userId, username, ip: userIp, avatar_url: socket.user.avatar_url });
     }
     onlineUsers.get(userId).sockets.add(socket.id);
 
@@ -920,6 +935,7 @@ io.on('connection', (socket) => {
     const onlineList = Array.from(onlineUsers.entries()).map(([id, data]) => ({
         userId: id,
         username: data.username,
+        avatar_url: data.avatar_url,
         ip: data.ip
     }));
     socket.emit('online:list', onlineList);
@@ -1120,6 +1136,7 @@ io.on('connection', (socket) => {
         const payload = {
             sender: socket.user.username,
             userId: socket.user.id,
+            avatar_url: socket.user.avatar_url,
             text: data.text,
             time: data.time || new Date().toLocaleTimeString(),
             room: room,

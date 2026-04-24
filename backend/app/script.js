@@ -109,7 +109,7 @@ function updateAuthUI() {
         
         const avatarEl = document.getElementById('user-avatar-mini');
         if (authUser.avatar_url) {
-            avatarEl.innerHTML = `<img src="${authUser.avatar_url}" class="w-full h-full rounded-xl object-cover">`;
+            avatarEl.innerHTML = `<img src="${authUser.avatar_url}" class="w-full h-full rounded-xl object-cover shadow-inner">`;
         } else {
             avatarEl.innerText = authUser.username[0].toUpperCase();
             avatarEl.style.background = 'var(--accent)';
@@ -535,7 +535,9 @@ function renderUsers() {
         return `
         <div class="sidebar-item group" data-room="${room}" data-user-id="${u.id}" onclick="joinRoom('${room}')">
             <div class="relative">
-                <div class="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-[10px] font-black border border-white/5 group-hover:border-indigo-500/30 transition-all">${u.username[0].toUpperCase()}</div>
+                <div class="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-[10px] font-black border border-white/5 group-hover:border-indigo-500/30 transition-all overflow-hidden">
+                    ${u.avatar_url ? `<img src="${u.avatar_url}" class="w-full h-full object-cover">` : u.username[0].toUpperCase()}
+                </div>
                 ${isOnline ? '<div class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-bg-deep shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>' : ''}
             </div>
             <div class="flex flex-col min-w-0">
@@ -675,12 +677,17 @@ function renderSidebarSearchResults(results) {
         list.innerHTML = '<div class="text-[10px] text-white/20 italic p-4 text-center">No matching transmissions found.</div>';
     } else {
         list.innerHTML = results.map(r => `
-            <div class="search-result-item p-3 rounded-2xl cursor-pointer group" onclick="jumpToSearchResult(${r.id}, '${r.room}')">
-                <div class="flex justify-between items-center mb-1">
-                    <span class="text-[9px] font-black text-indigo-400 uppercase tracking-widest">${r.sender}</span>
-                    <span class="text-[8px] text-white/10 group-hover:text-white/30 transition-colors uppercase font-bold">#${r.room}</span>
+            <div class="search-result-item p-3 rounded-2xl cursor-pointer group flex gap-3 items-center" onclick="jumpToSearchResult(${r.id}, '${r.room}')">
+                <div class="w-8 h-8 rounded-lg bg-white/5 flex-shrink-0 overflow-hidden flex items-center justify-center border border-white/10 group-hover:border-indigo-500/30 transition-all">
+                    ${r.avatar_url ? `<img src="${r.avatar_url}" class="w-full h-full object-cover">` : `<span class="text-[10px] font-black">${r.sender[0].toUpperCase()}</span>`}
                 </div>
-                <p class="text-[10px] text-white/50 group-hover:text-white/80 transition-colors line-clamp-2 leading-relaxed">${r.text}</p>
+                <div class="flex-grow min-w-0">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-[9px] font-black text-indigo-400 uppercase tracking-widest">${r.sender}</span>
+                        <span class="text-[8px] text-white/10 group-hover:text-white/30 transition-colors uppercase font-bold">#${r.room}</span>
+                    </div>
+                    <p class="text-[10px] text-white/50 group-hover:text-white/80 transition-colors line-clamp-2 leading-relaxed">${r.text}</p>
+                </div>
             </div>
         `).join('');
     }
@@ -764,7 +771,14 @@ function openProfileModal() {
     document.getElementById('profile-bio-input').value = authUser.bio || '';
     document.getElementById('profile-status-text').value = authUser.status_text || 'Available';
     document.getElementById('profile-status-emoji').value = authUser.status_emoji || '🟢';
-    document.getElementById('profile-avatar').innerText = authUser.username[0].toUpperCase();
+    
+    const avatarEl = document.getElementById('profile-avatar');
+    if (authUser.avatar_url) {
+        avatarEl.innerHTML = `<img src="${authUser.avatar_url}" class="w-full h-full rounded-3xl object-cover shadow-2xl">`;
+    } else {
+        avatarEl.innerText = authUser.username[0].toUpperCase();
+        avatarEl.style.background = 'var(--accent)';
+    }
     modal.classList.remove('hidden');
 }
 
@@ -821,7 +835,17 @@ function showHoverCard(trigger, userId, username) {
     const isOnline = onlineUserIds.has(parseInt(userId));
     
     document.getElementById('hover-username').innerText = username === 'You' ? authUser.username : username;
-    document.getElementById('hover-avatar').innerText = (username === 'You' ? authUser.username : username)[0].toUpperCase();
+    
+    const avatarEl = document.getElementById('hover-avatar');
+    const avatarUrl = user?.avatar_url || (username === 'You' ? authUser.avatar_url : null);
+    
+    if (avatarUrl) {
+        avatarEl.innerHTML = `<img src="${avatarUrl}" class="w-full h-full rounded-2xl object-cover">`;
+    } else {
+        avatarEl.innerText = (username === 'You' ? authUser.username : username)[0].toUpperCase();
+        avatarEl.style.background = 'var(--accent)';
+    }
+    
     document.getElementById('hover-bio').innerText = user?.bio || 'Neural interface active...';
     
     const statusDot = card.querySelector('.bg-emerald-500');
@@ -890,10 +914,14 @@ function prependMessage(data, atTop = true) {
     msgEl.id = 'msg-' + data.id;
     msgEl.dataset.msgId = data.id;
 
+    const avatarHtml = data.avatar_url 
+        ? `<img src="${data.avatar_url}" class="w-full h-full rounded-2xl object-cover">`
+        : `<span class="text-xs font-black">${data.sender[0].toUpperCase()}</span>`;
+
     if (isBot) {
         msgEl.className = 'flex gap-4 flex-row group message-anim';
         msgEl.innerHTML = `
-            <div class="avatar bot-avatar shadow-lg border border-cyan-500/30"><i class="fas fa-robot"></i></div>
+            <div class="avatar bot-avatar shadow-lg border border-cyan-500/30 flex items-center justify-center"><i class="fas fa-robot text-xs"></i></div>
             <div class="relative flex flex-col items-start max-w-[85%]">
                 <div class="flex items-center gap-3 mb-1 px-1">
                     <span class="text-[10px] font-black uppercase text-cyan-400 tracking-widest">TunnelBot</span>
@@ -907,7 +935,7 @@ function prependMessage(data, atTop = true) {
     } else if (isCommand) {
         msgEl.className = `flex gap-4 flex-row-reverse group message-anim`;
         msgEl.innerHTML = `
-            <div class="avatar shadow-lg border border-white/5" style="background:var(--accent)">${data.sender[0].toUpperCase()}</div>
+            <div class="avatar shadow-lg border border-white/5 overflow-hidden flex items-center justify-center" style="background:var(--accent)">${avatarHtml}</div>
             <div class="relative flex flex-col items-end max-w-[75%]">
                 <div class="flex items-center gap-3 mb-1 px-1">
                     <span class="text-[9px] font-bold opacity-30 text-white uppercase tracking-tighter">${data.time}</span>
@@ -917,16 +945,17 @@ function prependMessage(data, atTop = true) {
                 </div>
             </div>`;
     } else {
+        const userId = data.userId || data.user_id;
         const avatarColor = isMe ? 'var(--accent)' : '#1e293b';
         msgEl.className = `flex gap-4 ${isMe ? 'flex-row-reverse' : 'flex-row'} group message-anim`;
         msgEl.innerHTML = `
-            <div class="avatar shadow-lg border border-white/5" style="background:${avatarColor}">${data.sender[0].toUpperCase()}</div>
+            <div class="avatar shadow-lg border border-white/5 overflow-hidden user-profile-trigger cursor-pointer flex items-center justify-center" data-user-id="${userId}" style="background:${avatarColor}">${avatarHtml}</div>
             <div class="relative flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[75%]">
                 <div class="flex items-center gap-3 mb-1 px-1">
-                    ${!isMe ? `<span class="text-[10px] font-black uppercase text-indigo-400 tracking-widest cursor-pointer hover:underline user-profile-trigger" data-user-id="${data.userId}">${data.sender}</span>` : `<span class="text-[10px] font-black uppercase text-white/40 tracking-widest cursor-pointer hover:underline user-profile-trigger" data-user-id="${data.userId}">You</span>`}
+                    ${!isMe ? `<span class="text-[10px] font-black uppercase text-indigo-400 tracking-widest cursor-pointer hover:underline user-profile-trigger" data-user-id="${userId}">${data.sender}</span>` : `<span class="text-[10px] font-black uppercase text-white/40 tracking-widest cursor-pointer hover:underline user-profile-trigger" data-user-id="${userId}">You</span>`}
                     <span class="text-[9px] font-bold opacity-30 text-white uppercase tracking-tighter">${data.time}</span>
                 </div>
-                <div class="p-4 rounded-[1.5rem] shadow-xl ${isMe ? 'rounded-tr-none text-white' : 'rounded-tl-none'} glass border border-white/[0.03] transition-all" 
+                <div class="p-4 rounded-[2rem] shadow-xl ${isMe ? 'rounded-tr-none text-white' : 'rounded-tl-none'} glass border border-white/[0.03] transition-all" 
                      style="${isMe ? 'background:var(--bubble-me); border-color:rgba(255,255,255,0.1)' : 'background:var(--bubble-them)'}">
                     <p class="text-sm leading-relaxed font-medium">${parseMessageContent(data.text)}</p>
                     ${data.ephemeral ? '<p class="text-[8px] italic opacity-50 mt-1">Ephemeral - Not saved to archive</p>' : ''}

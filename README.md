@@ -1,147 +1,276 @@
-# TunnelPro: Quantum Chat & ChatOps Platform
+# TunnelPro Chat App
 
-A premium, full-stack chat application with real-time observability and integrated ChatOps, built for modern cloud-native environments. Featuring a "Quantum" glassmorphism UI, dynamic group channels, and a powerful diagnostic bot.
+TunnelPro is a full-stack real-time chat application built with Node.js, Express, Socket.IO, PostgreSQL, Redis, and Kubernetes manifests for local or cluster deployment. It includes public channels, direct messaging, file uploads, message reactions, pinned messages, full-text search, Google sign-in support, and a small ChatOps command layer inside the chat UI.
 
-## 🎯 Core Features
+## Features
 
-### 💬 Quantum Chat & Channels
-- **Real-time Messaging**: Powered by Socket.IO with room-based scoping for privacy and performance.
-- **Dynamic Group Channels**: Create, join, and manage custom chat rooms (e.g., `#dev-ops`, `#k8s-logs`).
-- **Relational Persistence**: Messages are linked to groups and users in PostgreSQL.
-- **Premium UI**: Sleek glassmorphism design with Dark, Light, and Solar themes.
-- **Rich Interaction**: Typing indicators, read receipts, and delivery tracking.
+- Real-time chat with Socket.IO
+- Channel-based messaging with seeded default groups: `general`, `dev-ops`, and `k8s-logs`
+- Direct messaging and online user presence
+- PostgreSQL-backed persistence with automatic schema migration on startup
+- Redis adapter support for multi-instance Socket.IO broadcasting
+- In-memory fallback mode when PostgreSQL is unavailable
+- File uploads served from `/uploads`
+- Reactions, pinned messages, threaded replies, delivery state, and read state
+- Message search backed by PostgreSQL full-text indexing
+- Username/password auth plus optional Google sign-in
+- Built-in slash commands such as `/help`, `/stats`, `/db-health`, and `/redis-health`
+- Kubernetes manifests for app, PostgreSQL, Redis, and ingress
+- GitHub Actions workflow for Azure Web App deployment
 
-### 🤖 ChatOps TunnelBot
-- **Slash Commands**: Manage and monitor your infrastructure directly from the chat.
-- **Live Diagnostics**: Real-time health checks for PostgreSQL and Redis.
-- **Resource Monitoring**: Instant insights into server memory, uptime, and active sessions.
-- **Ephemeral Responses**: Bot output stays in the channel but is NOT saved to the DB, keeping history clean.
+## Tech Stack
 
-### 📊 Fortress Monitoring Dashboard
-- **Real-time Observability**: Live cluster metrics and system performance tracking.
-- **Scaling Detection**: Visual indicators for connection health and pod activity.
-- **Integrated Insights**: One-click access to system logs and architecture diagrams.
+- Backend: Node.js, Express, Socket.IO
+- Database: PostgreSQL
+- Realtime scaling: Redis Pub/Sub with `@socket.io/redis-adapter`
+- Frontend: static HTML, CSS, and JavaScript served by Express
+- Deployment: Docker, Kubernetes manifests, GitHub Actions, Azure Web App
 
-### ☁️ Cloud-Native Deployment
-- **Azure App Service**: Production-hardened deployment in the `centralindia` region.
-- **GitHub Actions OIDC**: Secure, secret-less authentication using Federated Identities.
-- **Node 20 (LTS)**: Standardized runtime for stability and compatibility.
-
----
-
-## 🤖 Bot Commands (ChatOps)
-
-| Command | Description |
-|:---|:---|
-| `/help` | List all available bot commands |
-| `/db-health` | **Live PostgreSQL Check**: DB size, latency, and row counts |
-| `/redis-health` | **Live Redis Check**: Pub/Sub mesh response and latency |
-| `/stats` | **System Metrics**: RSS/Heap memory, active sockets, and Node info |
-| `/deploy-status`| **Environment Info**: Platform, port, and PID details |
-| `/uptime` | Current server uptime |
-| `/users` | List all currently online users and their IPs |
-| `/groups` | List all available channels and their creators |
-| `/whoami` | Show your current session and connection details |
-
----
-
-## 🏗 Project Structure
+## Project Structure
 
 ```text
 Chat-App-K8S-Full-Stack/
 ├── backend/
-│   ├── app/                # Frontend (Quantum UI: HTML/CSS/JS)
-│   ├── server.js           # Node.js + Socket.IO + ChatOps Bot Engine
-│   ├── Dockerfile          # App Containerization
-│   └── package.json        # Node.js Dependencies
+│   ├── app/
+│   │   ├── index.html
+│   │   ├── script.js
+│   │   └── style.css
+│   ├── Dockerfile
+│   ├── package.json
+│   └── server.js
 ├── k8s-manifests/
-│   ├── 01-config.yaml      # ConfigMaps & Secrets
-│   ├── 02-db-statefulset.yaml    # PostgreSQL Cluster
-│   ├── 03-app-deployment.yaml    # Application Deployment
-│   ├── 04-ingress.yaml     # Routing & Traffic Management
-│   └── 05-redis-statefulset.yaml # Redis for Scaling
-├── .github/workflows/      # Azure CI/CD Pipelines
-├── Makefile                # Operations Automation
-└── README.md               # This Guide
+│   ├── 01-config.yaml
+│   ├── 02-db-statefulset.yaml
+│   ├── 03-app-deployment.yaml
+│   ├── 04-ingress.yaml
+│   ├── 05-redis-statefulset.yaml
+│   └── init.sql
+├── .github/workflows/
+│   └── main_chat-app-tunnel.yml
+├── Makefile
+├── RUN.md
+└── README.md
 ```
 
----
+## Prerequisites
 
-## 🚀 Quick Start (Local Development)
+- Node.js 22 or newer
+- npm
+- PostgreSQL if you want persistent storage locally
+- Redis if you want to test multi-instance pub/sub locally
+- Docker and `kubectl` for container or Kubernetes workflows
+- `make` for the provided shortcuts
 
-### 1. Prerequisites
-- **Node.js** (v24+)
-- **PostgreSQL** & **Redis** (The app will automatically use **In-Memory Fallback** if these are unavailable).
+## Local Development
 
-### 2. Setup & Run
-Using the provided `Makefile`:
+### 1. Install dependencies
 
 ```bash
-# 1. Install dependencies
 make install
+```
 
-# 2. Launch the application
+### 2. Configure environment
+
+The server reads configuration from environment variables. You can run with only Node.js, but PostgreSQL-backed development is recommended.
+
+Common variables:
+
+```bash
+PORT=3000
+NODE_ENV=development
+JWT_SECRET=replace-me
+
+DB_HOST=localhost
+DB_NAME=chatapp
+DB_USER=postgres
+POSTGRES_PASSWORD=postgres
+
+REDIS_HOST=localhost
+REDIS_PORT=6379
+
+GOOGLE_CLIENT_ID=your-google-client-id
+ALLOWED_ORIGINS=http://localhost:3000
+```
+
+Notes:
+
+- If `DATABASE_URL` is set, it is used for PostgreSQL connectivity and SSL is enabled for that connection path.
+- If PostgreSQL cannot be reached after startup retries, the app falls back to in-memory demo mode.
+- If `GOOGLE_CLIENT_ID` is missing, Google auth is disabled but the app still runs.
+
+### 3. Initialize the database
+
+If you want the local database seeded with the base schema:
+
+```bash
+make db-init
+```
+
+This applies [k8s-manifests/init.sql](/home/ankit/git/Chat-App-K8S-Full-Stack/k8s-manifests/init.sql:1) to the database named by `DB_NAME` in the `Makefile`, which defaults to `chatapp`.
+
+The server also performs startup migrations automatically, so `db-init` is useful but not strictly required for every run.
+
+### 4. Start the app
+
+```bash
 make run
 ```
 
-*Manual alternative:* `cd backend && npm install && node server.js`
+Manual equivalent:
 
-### 3. Access
-Open **http://localhost:3000** in your browser.
-
----
-
-## 🗄️ Database Schema
-
-The system uses a relational schema with automatic migrations for room-based messaging:
-
-```sql
--- Core user identity
-CREATE TABLE users (
-  id SERIAL PRIMARY KEY,
-  username TEXT UNIQUE NOT NULL,
-  password_hash TEXT NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Channels (Groups)
-CREATE TABLE groups (
-  id SERIAL PRIMARY KEY,
-  name TEXT UNIQUE NOT NULL,
-  created_by TEXT NOT NULL,
-  created_at TIMESTAMP DEFAULT NOW()
-);
-
--- Messages with relational group linkage
-CREATE TABLE messages (
-  id SERIAL PRIMARY KEY,
-  user_id INT REFERENCES users(id) ON DELETE CASCADE,
-  sender TEXT NOT NULL,
-  text TEXT NOT NULL,
-  room TEXT NOT NULL DEFAULT 'general',
-  group_id INT REFERENCES groups(id) ON DELETE CASCADE,
-  delivered_at TIMESTAMP NULL,
-  read_at TIMESTAMP NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+```bash
+cd backend
+npm install
+node server.js
 ```
 
----
+Open `http://localhost:3000`.
 
-## 🚢 Production Checklist
-- [ ] Rotate `JWT_SECRET` and `POSTGRES_PASSWORD` secrets.
-- [ ] Enable TLS/SSL on Ingress controllers.
-- [ ] Configure Azure Monitor for long-term log retention.
-- [ ] Set resource quotas for K8s namespaces.
-- [ ] Validate Redis persistence for scaling nodes.
-- [ ] Ensure `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, and `AZURE_SUBSCRIPTION_ID` are set in GitHub Secrets for App Service OIDC deployment.
+## Makefile Commands
 
----
+```bash
+make help
+make install
+make run
+make db-init
+make docker-build
+make k8s-deploy
+make k8s-delete
+make k8s-status
+make k8s-logs
+make k8s-proxy
+```
 
-## 🤝 Contributing
-Contributions are welcome! Please follow the existing code style and ensure all `Makefile` commands pass before submitting a PR.
+## Application Endpoints
 
----
+Key HTTP endpoints exposed by [backend/server.js](/home/ankit/git/Chat-App-K8S-Full-Stack/backend/server.js:1):
 
-## 📝 License
-MIT License. Created with ❤️ for cloud-native engineers.
+- `GET /health` for liveness and readiness checks
+- `POST /register` for local account creation
+- `POST /login` for local login
+- `POST /auth/google` for Google sign-in
+- `POST /upload` for file uploads
+- `GET /users` for user list
+- `GET /groups` and `POST /groups` for channel management
+- `GET /messages` for room history
+- `GET /search?q=...` for message search
+
+## ChatOps Commands
+
+The chat input supports slash commands processed by the server:
+
+- `/help`
+- `/uptime`
+- `/stats`
+- `/db-health`
+- `/redis-health`
+- `/deploy-status`
+- `/users`
+- `/groups`
+- `/whoami`
+
+These responses are operational and are not meant to replace external monitoring.
+
+## Database Model
+
+Core schema includes:
+
+- `users`
+- `groups`
+- `messages`
+- `reactions`
+- `group_members`
+
+On startup, the app also applies incremental schema updates such as:
+
+- `google_id`, `avatar_url`, `bio`, `status_text`, and `status_emoji` on `users`
+- `parent_id`, `is_pinned`, `updated_at`, and `tsv` on `messages`
+- a trigger-backed full-text search index on message content
+
+## Docker
+
+Build the local image with:
+
+```bash
+make docker-build
+```
+
+The default image tag is `local-chat-app:v1`.
+
+## Kubernetes Deployment
+
+The manifests in [k8s-manifests](/home/ankit/git/Chat-App-K8S-Full-Stack/k8s-manifests) provision:
+
+- ConfigMap and Secret for app configuration
+- PostgreSQL StatefulSet
+- Redis StatefulSet
+- Chat app Deployment with 2 replicas
+- Service exposing the app internally on port `80`
+- Ingress routing for `chat.local`
+
+Deploy everything:
+
+```bash
+make k8s-deploy
+```
+
+Check status:
+
+```bash
+make k8s-status
+```
+
+Stream app logs:
+
+```bash
+make k8s-logs
+```
+
+Port-forward locally:
+
+```bash
+make k8s-proxy
+```
+
+Then open `http://localhost:3000`.
+
+## Azure Deployment
+
+The workflow at [.github/workflows/main_chat-app-tunnel.yml](/home/ankit/git/Chat-App-K8S-Full-Stack/.github/workflows/main_chat-app-tunnel.yml:1) builds the `backend/` app and deploys it to Azure Web App `chat-app-tunnel`.
+
+Current workflow behavior:
+
+- Triggers on pushes to `main` and manual dispatch
+- Uses Node.js `22.x` during CI
+- Runs `npm install` in `backend/`
+- Optionally runs `npm run build --if-present`
+- Runs a Snyk vulnerability scan
+- Deploys with `azure/webapps-deploy@v3`
+- Starts the app with `node server.js`
+
+Required GitHub secrets:
+
+- `AZURE_CLIENT_ID`
+- `AZURE_TENANT_ID`
+- `AZURE_SUBSCRIPTION_ID`
+- `SNYK_TOKEN`
+
+## Operational Notes
+
+- Production mode enforces HTTPS redirect based on `x-forwarded-proto`.
+- Static assets are served from `backend/app`.
+- Uploaded files are stored under `backend/app/uploads`.
+- The current Kubernetes secret values in [k8s-manifests/01-config.yaml](/home/ankit/git/Chat-App-K8S-Full-Stack/k8s-manifests/01-config.yaml:1) are example defaults and should be rotated before any real deployment.
+- The repo includes Kubernetes manifests and an Azure Web App workflow; they are separate deployment paths rather than one combined runtime model.
+
+## Troubleshooting
+
+- If login or registration requests are rejected repeatedly, check the configured rate limits in the server.
+- If the app starts but data does not persist, verify PostgreSQL connectivity and credentials.
+- If realtime messaging works on one instance but not across replicas, verify Redis connectivity.
+- If Google sign-in does not appear to work, confirm `GOOGLE_CLIENT_ID` is set and matches the frontend origin.
+- If Kubernetes probes fail, verify `GET /health` is reachable on port `3000`.
+
+## License
+
+MIT
