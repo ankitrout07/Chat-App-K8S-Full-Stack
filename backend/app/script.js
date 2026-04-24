@@ -26,33 +26,33 @@ let frequencyData = Array(20).fill(0);
 let frequencyLabels = Array(20).fill('');
 
 const themes = {
-    dark: { 
-        '--bg-deep': '#050811', '--bg-main': '#0a0f1e', '--panel': 'rgba(16, 24, 39, 0.7)', 
+    dark: {
+        '--bg-deep': '#050811', '--bg-main': '#0a0f1e', '--panel': 'rgba(16, 24, 39, 0.7)',
         '--text-main': '#f1f5f9', '--accent': '#6366f1', '--accent-glow': 'rgba(99, 102, 241, 0.3)',
-        '--bubble-me': '#6366f1', '--bubble-them': 'rgba(30, 41, 59, 0.8)' 
+        '--bubble-me': '#6366f1', '--bubble-them': 'rgba(30, 41, 59, 0.8)'
     },
-    light: { 
-        '--bg-deep': '#f1f5f9', '--bg-main': '#f8fafc', '--panel': 'rgba(255, 255, 255, 0.9)', 
+    light: {
+        '--bg-deep': '#f1f5f9', '--bg-main': '#f8fafc', '--panel': 'rgba(255, 255, 255, 0.9)',
         '--text-main': '#0f172a', '--accent': '#4f46e5', '--accent-glow': 'rgba(79, 70, 229, 0.2)',
-        '--bubble-me': '#4f46e5', '--bubble-them': 'rgba(241, 245, 249, 1)' 
+        '--bubble-me': '#4f46e5', '--bubble-them': 'rgba(241, 245, 249, 1)'
     },
-    solar: { 
-        '--bg-deep': '#00212b', '--bg-main': '#002b36', '--panel': 'rgba(7, 54, 66, 0.8)', 
+    solar: {
+        '--bg-deep': '#00212b', '--bg-main': '#002b36', '--panel': 'rgba(7, 54, 66, 0.8)',
         '--text-main': '#839496', '--accent': '#b58900', '--accent-glow': 'rgba(181, 137, 0, 0.3)',
-        '--bubble-me': '#b58900', '--bubble-them': 'rgba(7, 54, 66, 1)' 
+        '--bubble-me': '#b58900', '--bubble-them': 'rgba(7, 54, 66, 1)'
     },
     cyberpunk: {
-        '--bg-deep': '#0c001a', '--bg-main': '#1a0033', '--panel': 'rgba(20, 0, 40, 0.7)', 
+        '--bg-deep': '#0c001a', '--bg-main': '#1a0033', '--panel': 'rgba(20, 0, 40, 0.7)',
         '--text-main': '#00ffcc', '--accent': '#ff00ff', '--accent-glow': 'rgba(255, 0, 255, 0.4)',
         '--bubble-me': '#ff00ff', '--bubble-them': 'rgba(40, 0, 80, 0.8)'
     },
     space: {
-        '--bg-deep': '#000000', '--bg-main': '#0a0a0a', '--panel': 'rgba(10, 10, 20, 0.8)', 
+        '--bg-deep': '#000000', '--bg-main': '#0a0a0a', '--panel': 'rgba(10, 10, 20, 0.8)',
         '--text-main': '#ffffff', '--accent': '#0ea5e9', '--accent-glow': 'rgba(14, 165, 233, 0.3)',
         '--bubble-me': '#0ea5e9', '--bubble-them': 'rgba(20, 20, 30, 1)'
     },
     emerald: {
-        '--bg-deep': '#010b01', '--bg-main': '#021a02', '--panel': 'rgba(2, 40, 20, 0.7)', 
+        '--bg-deep': '#010b01', '--bg-main': '#021a02', '--panel': 'rgba(2, 40, 20, 0.7)',
         '--text-main': '#dcfce7', '--accent': '#10b981', '--accent-glow': 'rgba(16, 185, 129, 0.3)',
         '--bubble-me': '#10b981', '--bubble-them': 'rgba(5, 50, 30, 0.8)'
     }
@@ -66,7 +66,7 @@ const SVGS = {
 
 function applyTheme(name) {
     const themeData = themes[name] || themes.dark;
-    
+
     // Apply CSS variables to root
     const root = document.documentElement;
     Object.entries(themeData).forEach(([prop, value]) => {
@@ -74,21 +74,21 @@ function applyTheme(name) {
     });
 
     const themeClasses = ['dark', 'light', 'solar', 'cyberpunk', 'space', 'emerald'].map(t => 'theme-' + t);
-    
+
     // Remove existing theme classes
     themeClasses.forEach(c => document.body.classList.remove(c));
-    
+
     // Add new theme class
     const newClass = 'theme-' + name;
     document.body.classList.add(newClass);
-    
+
     localStorage.setItem('chat-theme', name);
-    
+
     // Persist to DB if logged in
     if (authUser && socket.connected) {
         socket.emit('updateThemePreference', { theme: name });
     }
-    
+
     toast(`Protocol: ${name.toUpperCase()}`);
 }
 
@@ -98,7 +98,7 @@ let authUser = JSON.parse(localStorage.getItem('tunnel_auth_user') || 'null');
 let authToken = localStorage.getItem('tunnel_auth_token') || null;
 let typingTimeout;
 let monitoringInterval;
-let authMode = 'login'; 
+let authMode = 'login';
 const GOOGLE_CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"; // User should replace this
 
 const popSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3');
@@ -120,7 +120,7 @@ function updateAuthUI() {
         if (DOM.authNav) DOM.authNav.classList.remove('hidden');
         if (DOM.loginBtn) DOM.loginBtn.classList.add('hidden');
         if (DOM.navUsername) DOM.navUsername.innerText = authUser.username;
-        
+
         if (DOM.userAvatarMini) {
             if (authUser.avatar_url) {
                 DOM.userAvatarMini.innerHTML = `<img src="${authUser.avatar_url}" class="w-full h-full rounded-xl object-cover shadow-inner">`;
@@ -129,9 +129,9 @@ function updateAuthUI() {
                 DOM.userAvatarMini.style.background = 'var(--accent)';
             }
         }
-        
+
         currentUser = authUser.username;
-        
+
         // Restore theme and status from profile
         if (authUser.preferred_theme) {
             applyTheme(authUser.preferred_theme);
@@ -149,7 +149,7 @@ function connectSocket() {
     if (!authToken) return;
     socket.auth = { token: authToken };
     socket.connect();
-    
+
     // Initial room join
     setTimeout(async () => {
         await fetchGroups();
@@ -171,12 +171,12 @@ function logout() {
 // --- GOOGLE AUTH ---
 function initGoogleAuth() {
     if (typeof google === 'undefined') return setTimeout(initGoogleAuth, 100);
-    
+
     google.accounts.id.initialize({
         client_id: GOOGLE_CLIENT_ID,
         callback: handleGoogleCallback
     });
-    
+
     // We render the standard button into a hidden div so we can trigger it if needed,
     // or just use it for the One Tap experience.
     google.accounts.id.renderButton(
@@ -197,14 +197,14 @@ async function handleGoogleCallback(response) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ credential: response.credential })
         });
-        
+
         const data = await res.json();
         if (res.ok) {
             localStorage.setItem('tunnel_auth_token', data.token);
             localStorage.setItem('tunnel_auth_user', JSON.stringify(data.user));
             authUser = data.user;
             authToken = data.token;
-            
+
             closeAuthModal();
             updateAuthUI();
             connectSocket();
@@ -228,11 +228,11 @@ async function uploadFile(input) {
         const res = await fetch('/upload', { method: 'POST', body: formData });
         const data = await res.json();
         if (data.url) {
-            const text = data.url.match(/\.(jpeg|jpg|gif|png|webp)$/i) 
-                ? data.url 
+            const text = data.url.match(/\.(jpeg|jpg|gif|png|webp)$/i)
+                ? data.url
                 : `📁 Attachment: [${data.name}](${data.url})`;
-            socket.emit('chat message', { 
-                user: currentUser || 'Guest', 
+            socket.emit('chat message', {
+                user: currentUser || 'Guest',
                 userId: authUser ? authUser.id : null,
                 text: text,
                 time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -353,7 +353,7 @@ function openInviteModal() {
         .filter(u => u.id !== authUser?.id)
         .map(u => `<option value="${u.id}">${u.username}</option>`)
         .join('');
-    
+
     document.getElementById('invite-modal').classList.remove('hidden');
 }
 
@@ -372,7 +372,7 @@ function sendInvite() {
         targetUserId,
         targetUsername
     });
-    
+
     closeInviteModal();
     toast(`Invite sent to ${targetUsername}`);
 }
@@ -386,17 +386,17 @@ function sendMessage() {
             cancelEdit();
             return;
         }
-        
-        const payload = { 
-            user: currentUser || 'Guest', 
+
+        const payload = {
+            user: currentUser || 'Guest',
             userId: authUser ? authUser.id : null,
-            text: inputDom.value, 
+            text: inputDom.value,
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             room: currentRoom,
             groupId: currentGroupId,
             parentId: replyingTo ? replyingTo.id : null
         };
-        
+
         socket.emit('chat message', payload);
         inputDom.value = '';
         cancelReply();
@@ -429,7 +429,7 @@ function parseMessageContent(text) {
 
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     html = html.replace(urlRegex, (url) => {
-        if(url.match(/\.(jpeg|jpg|gif|png|webp)$/i)) {
+        if (url.match(/\.(jpeg|jpg|gif|png|webp)$/i)) {
             return `<br><img src="${url}" class="chat-image" loading="lazy" onclick="window.open('${url}','_blank')">`;
         }
         return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="chat-link">${url}</a>`;
@@ -455,7 +455,7 @@ function showNotification(data) {
 
     const toast = document.createElement('div');
     toast.className = 'quantum-toast glass p-4';
-    
+
     const isBot = data.isBot || data.sender === 'TunnelBot';
     const borderCol = isBot ? 'var(--accent-secondary)' : 'var(--accent)';
 
@@ -491,7 +491,7 @@ function requestNotifyPermission() {
 function showView(viewId) {
     document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
     const viewEl = document.getElementById('view-' + viewId);
-    if(viewEl) viewEl.classList.remove('hidden');
+    if (viewEl) viewEl.classList.remove('hidden');
 
     document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
     const sideEl = document.getElementById('nav-' + viewId);
@@ -515,15 +515,15 @@ function joinRoom(room, groupId) {
     loadMessages();
     socket.emit('fetchPinnedMessages', room);
     showView('home');
-    
+
     document.getElementById('active-room-display').innerText = room;
     document.getElementById('chat-header-icon').innerText = room.startsWith('dm_') ? '@' : '#';
-    
+
     const inviteBtn = document.getElementById('invite-btn');
     if (inviteBtn) {
         inviteBtn.style.display = room.startsWith('dm_') ? 'none' : 'flex';
     }
-    
+
     document.querySelectorAll('.sidebar-item').forEach(el => {
         const roomAttr = el.getAttribute('data-room');
         el.classList.toggle('active', roomAttr === room);
@@ -546,7 +546,7 @@ function renderUsers() {
         const onlineData = Array.from(onlineUserIds).find(o => o.userId === u.id);
         const isOnline = !!onlineData;
         const room = getDMId(authUser ? authUser.id : 0, u.id);
-        
+
         return `
         <div class="sidebar-item group" data-room="${room}" data-user-id="${u.id}" onclick="joinRoom('${room}')">
             <div class="relative">
@@ -594,7 +594,7 @@ function deleteMessage(msgId) { socket.emit('deleteRequest', msgId); }
 function updateMessageCount() {
     const count = document.querySelectorAll('#messages .relative').length;
     const mc = document.getElementById('msg-count');
-    if(mc) mc.innerText = `${count} msgs`;
+    if (mc) mc.innerText = `${count} msgs`;
 }
 
 // --- EDIT & PIN LOGIC ---
@@ -607,7 +607,7 @@ function startEdit(msgId, text) {
     input.classList.add('editing-active');
     input.placeholder = "Editing message... (Esc to cancel)";
     input.focus();
-    
+
     // Add visual indicator for editing
     document.querySelector('.chat-input-container').style.borderColor = 'var(--accent-secondary)';
 }
@@ -634,12 +634,12 @@ function unpinMessage(msgId) {
 function renderPinnedMessages(messages) {
     const container = document.getElementById('pinned-messages');
     if (!container) return;
-    
+
     if (messages.length === 0) {
         container.innerHTML = `<div class="text-[9px] text-muted opacity-30 italic text-center py-2">No active announcements</div>`;
         return;
     }
-    
+
     container.innerHTML = messages.map(m => `
         <div class="p-3 rounded-xl bg-amber-500/5 border border-amber-500/10 hover:border-amber-500/30 transition-all cursor-pointer group relative overflow-hidden" onclick="jumpToMessage(${m.id})">
             <div class="absolute inset-0 bg-gradient-to-r from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
@@ -673,11 +673,11 @@ async function performGlobalSearch(query, isSidebar = false) {
         if (isSidebar) document.getElementById('search-results-overlay').classList.add('hidden');
         return;
     }
-    
+
     try {
         const res = await fetch(`/search?q=${encodeURIComponent(query)}`);
         const results = await res.json();
-        
+
         if (isSidebar) renderSidebarSearchResults(results);
     } catch (err) {
         console.error('Search failed:', err);
@@ -687,7 +687,7 @@ async function performGlobalSearch(query, isSidebar = false) {
 function renderSidebarSearchResults(results) {
     const overlay = document.getElementById('search-results-overlay');
     const list = document.getElementById('search-results-list');
-    
+
     if (results.length === 0) {
         list.innerHTML = '<div class="text-[10px] text-white/20 italic p-4 text-center">No matching transmissions found.</div>';
     } else {
@@ -712,7 +712,7 @@ function renderSidebarSearchResults(results) {
 async function jumpToSearchResult(id, room) {
     document.getElementById('search-results-overlay').classList.add('hidden');
     document.getElementById('sidebar-search').value = '';
-    
+
     if (currentRoom !== room) {
         const group = allGroups.find(g => g.name === room);
         joinRoom(room, group?.id);
@@ -767,8 +767,8 @@ function initCharts() {
                 y: {
                     beginAtZero: true,
                     grid: { color: 'rgba(255,255,255,0.03)', drawBorder: false },
-                    ticks: { 
-                        color: 'rgba(255,255,255,0.2)', 
+                    ticks: {
+                        color: 'rgba(255,255,255,0.2)',
                         font: { size: 8, weight: 'bold' },
                         stepSize: 1
                     }
@@ -786,7 +786,7 @@ function openProfileModal() {
     document.getElementById('profile-bio-input').value = authUser.bio || '';
     document.getElementById('profile-status-text').value = authUser.status_text || 'Available';
     document.getElementById('profile-status-emoji').value = authUser.status_emoji || '🟢';
-    
+
     const avatarEl = document.getElementById('profile-avatar');
     if (authUser.avatar_url) {
         avatarEl.innerHTML = `<img src="${authUser.avatar_url}" class="w-full h-full rounded-3xl object-cover shadow-2xl">`;
@@ -805,14 +805,14 @@ function saveProfile() {
     const bio = document.getElementById('profile-bio-input').value;
     const statusText = document.getElementById('profile-status-text').value;
     const statusEmoji = document.getElementById('profile-status-emoji').value;
-    
+
     socket.emit('updateBio', { bio });
     socket.emit('updateStatus', { text: statusText, emoji: statusEmoji });
-    
+
     authUser.bio = bio;
     authUser.status_text = statusText;
     authUser.status_emoji = statusEmoji;
-    
+
     localStorage.setItem('tunnel_auth_user', JSON.stringify(authUser));
     updateAuthUI();
     toast('Neural profile synchronized');
@@ -840,32 +840,32 @@ document.addEventListener('mouseout', (e) => {
 function showHoverCard(trigger, userId, username) {
     const card = document.getElementById('user-hover-card');
     const rect = trigger.getBoundingClientRect();
-    
+
     // Position card
     card.style.left = `${rect.left}px`;
     card.style.top = `${rect.top - 180}px`; // Adjust based on card height
-    
+
     // Find user data
     const user = allUsers.find(u => u.id == userId || u.username === username);
     const isOnline = onlineUserIds.has(parseInt(userId));
-    
+
     document.getElementById('hover-username').innerText = username === 'You' ? authUser.username : username;
-    
+
     const avatarEl = document.getElementById('hover-avatar');
     const avatarUrl = user?.avatar_url || (username === 'You' ? authUser.avatar_url : null);
-    
+
     if (avatarUrl) {
         avatarEl.innerHTML = `<img src="${avatarUrl}" class="w-full h-full rounded-2xl object-cover">`;
     } else {
         avatarEl.innerText = (username === 'You' ? authUser.username : username)[0].toUpperCase();
         avatarEl.style.background = 'var(--accent)';
     }
-    
+
     document.getElementById('hover-bio').innerText = user?.bio || 'Neural interface active...';
-    
+
     const statusDot = card.querySelector('.bg-emerald-500');
     const statusText = document.getElementById('hover-status');
-    
+
     if (isOnline) {
         statusDot.className = 'w-1.5 h-1.5 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.5)]';
         statusText.innerHTML = `<span class="mr-1">${user?.status_emoji || '🟢'}</span> ${user?.status_text || 'Online'}`;
@@ -929,7 +929,7 @@ function prependMessage(data, atTop = true) {
     msgEl.id = 'msg-' + data.id;
     msgEl.dataset.msgId = data.id;
 
-    const avatarHtml = data.avatar_url 
+    const avatarHtml = data.avatar_url
         ? `<img src="${data.avatar_url}" class="w-full h-full rounded-2xl object-cover">`
         : `<span class="text-xs font-black">${data.sender[0].toUpperCase()}</span>`;
 
@@ -987,7 +987,7 @@ function prependMessage(data, atTop = true) {
                 </div>
             </div>`;
     }
-    
+
     if (atTop) {
         messages.prepend(msgEl);
     } else {
@@ -1052,7 +1052,7 @@ async function fetchStats() {
         const res = await fetch('/stats');
         const data = await res.json();
         updateStatsUI(data);
-    } catch (e) {}
+    } catch (e) { }
 }
 
 function updateStatsUI(stats) {
@@ -1060,12 +1060,12 @@ function updateStatsUI(stats) {
         document.getElementById('stat-uptime').innerText = stats.uptime + 's';
         document.getElementById('stat-memory').innerText = stats.memory + 'MB';
         document.getElementById('stat-conns').innerText = stats.connections;
-        
+
         // New metrics
         if (document.getElementById('stat-nodes')) document.getElementById('stat-nodes').innerText = stats.cpu + '%';
         if (document.getElementById('mon-db-status')) document.getElementById('mon-db-status').innerText = stats.dbStatus;
         if (document.getElementById('mon-redis-status')) document.getElementById('mon-redis-status').innerText = stats.redisStatus;
-        
+
         const memBar = document.getElementById('mem-bar');
         const cpuBar = document.getElementById('cpu-bar');
         const connBar = document.getElementById('conn-bar');
@@ -1118,23 +1118,23 @@ socket.on('chat message', (data) => {
     scrollToBottom();
 });
 
-    // 📣 NOTIFICATION SYSTEM
-    if (!isMe && !isCommand) {
-        showNotification(data);
-        
-        // Browser Push Notification (if tab is hidden)
-        if (window.Notification && Notification.permission === 'granted' && document.hidden) {
-            new Notification(`${data.sender}`, {
-                body: data.text,
-                icon: 'https://cdn-icons-png.flaticon.com/512/825/825590.png'
-            });
-        }
+// 📣 NOTIFICATION SYSTEM
+if (!isMe && !isCommand) {
+    showNotification(data);
+
+    // Browser Push Notification (if tab is hidden)
+    if (window.Notification && Notification.permission === 'granted' && document.hidden) {
+        new Notification(`${data.sender}`, {
+            body: data.text,
+            icon: 'https://cdn-icons-png.flaticon.com/512/825/825590.png'
+        });
     }
-});
+}
+;
 
 socket.on('system-stats', (stats) => updateStatsUI(stats));
 
-socket.on('typing', (data) => { 
+socket.on('typing', (data) => {
     if (data.user !== currentUser && data.room === currentRoom) {
         document.getElementById('typing-indicator').style.opacity = data.isTyping ? '1' : '0';
     }
@@ -1147,7 +1147,7 @@ socket.on('messageDeleted', (msgId) => {
         el.style.opacity = '0';
         el.style.transform = 'scale(0.9)';
         el.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
-        
+
         setTimeout(() => {
             el.remove();
             updateMessageCount();
@@ -1178,7 +1178,7 @@ socket.on('messageEdited', (data) => {
     if (msgEl) {
         const textEl = msgEl.querySelector('.glass p');
         if (textEl) textEl.innerHTML = parseMessageContent(data.newText);
-        
+
         const statusDiv = msgEl.querySelector('.status div:first-child');
         if (statusDiv && !statusDiv.innerHTML.includes('(edited)')) {
             statusDiv.innerHTML += ` <span class="text-[8px] opacity-40 ml-1 italic">(edited)</span>`;
@@ -1225,10 +1225,10 @@ socket.on('user:statusUpdate', (data) => {
 });
 
 socket.on('addedToGroup', (data) => {
-    showNotification({ 
-        sender: "System Intelligence", 
+    showNotification({
+        sender: "System Intelligence",
         text: `You have been granted access to #${data.groupName} by ${data.inviter}`,
-        isBot: true 
+        isBot: true
     });
     fetchGroups(); // Refresh group list to show new channel
 });
@@ -1285,7 +1285,7 @@ document.getElementById('auth-form').addEventListener('submit', async (e) => {
                 authUser = data.user;
                 localStorage.setItem('tunnel_auth_token', authToken);
                 localStorage.setItem('tunnel_auth_user', JSON.stringify(authUser));
-                
+
                 updateAuthUI();
                 connectSocket();
                 closeAuthModal();
@@ -1313,7 +1313,7 @@ document.getElementById('form-submit-btn').addEventListener('click', sendMessage
 document.getElementById('search').addEventListener('input', (e) => {
     clearTimeout(searchDebounce);
     const term = e.target.value.toLowerCase();
-    
+
     // Real-time filtering of current view
     document.querySelectorAll('#messages .relative').forEach(msg => {
         const text = msg.innerText.toLowerCase();
