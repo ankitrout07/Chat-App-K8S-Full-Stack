@@ -244,7 +244,6 @@ Current workflow behavior:
 - Uses Node.js `22.x` during CI
 - Runs `npm install` in `backend/`
 - Optionally runs `npm run build --if-present`
-- Runs a Snyk vulnerability scan
 - Deploys with `azure/webapps-deploy@v3`
 - Starts the app with `node server.js`
 
@@ -253,7 +252,6 @@ Required GitHub secrets:
 - `AZURE_CLIENT_ID`
 - `AZURE_TENANT_ID`
 - `AZURE_SUBSCRIPTION_ID`
-- `SNYK_TOKEN`
 
 ## Operational Notes
 

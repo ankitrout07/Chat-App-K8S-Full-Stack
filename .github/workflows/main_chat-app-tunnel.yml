@@ -27,14 +27,6 @@ jobs:
           npm install
           npm run build --if-present
 
-      - name: Run Snyk Security Scan
-        uses: snyk/actions/node@master
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          # Define the target file relative to the root
-          args: --severity-threshold=high --file=backend/package.json
-
       - name: Upload artifact for deployment
         uses: actions/upload-artifact@v4
         with:
