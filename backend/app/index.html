@@ -161,8 +161,8 @@
             </footer>
         </section>
 
-        <section id="view-arch" class="view hidden p-10 max-w-5xl mx-auto min-h-full flex flex-col justify-center">
-            <div class="panel p-10 sm:p-14 rounded-[3.5rem] shadow-2xl relative overflow-hidden">
+        <section id="view-arch" class="view hidden p-6 sm:p-10 max-w-5xl mx-auto h-full overflow-y-auto flex flex-col">
+            <div class="panel p-8 sm:p-14 rounded-[3.5rem] shadow-2xl relative overflow-hidden my-auto">
                 <div class="flex items-center gap-4 mb-12">
                     <div class="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 border border-indigo-500/20">
                         <i class="fas fa-project-diagram"></i>
@@ -271,8 +271,8 @@
             </div>
         </section>
 
-        <section id="view-about" class="view hidden p-10 max-w-4xl mx-auto min-h-full flex flex-col justify-center">
-            <div class="panel p-8 sm:p-10 rounded-[2.5rem] shadow-2xl">
+        <section id="view-about" class="view hidden p-6 sm:p-10 max-w-4xl mx-auto h-full overflow-y-auto flex flex-col">
+            <div class="panel p-8 sm:p-10 rounded-[2.5rem] shadow-2xl my-auto">
                 <h3 class="text-2xl font-black mb-6 tracking-tight"><i class="fas fa-circle-info mr-3" style="color:var(--accent)"></i>About TunnelPro</h3>
                 <p class="mb-4 text-muted leading-relaxed">TunnelPro is a high-performance, real-time messaging platform built specifically to run in clustered Kubernetes environments.</p>
                 <p class="mb-6 text-muted leading-relaxed">It utilizes a modern Node.js backend seamlessly integrated with Socket.IO for duplex communication, ensuring messages are delivered with sub-millisecond latency. Behind the scenes, Redis handles pub/sub routing between pod replicas, while PostgreSQL securely persists chat history.</p>
@@ -280,8 +280,8 @@
             </div>
         </section>
 
-        <section id="view-themes" class="view hidden p-10 max-w-4xl mx-auto min-h-full flex flex-col justify-center">
-            <div class="panel p-8 sm:p-10 rounded-[2.5rem] shadow-2xl">
+        <section id="view-themes" class="view hidden p-6 sm:p-10 max-w-4xl mx-auto h-full overflow-y-auto flex flex-col">
+            <div class="panel p-8 sm:p-10 rounded-[2.5rem] shadow-2xl my-auto">
                 <h3 class="text-2xl font-black mb-6 tracking-tight"><i class="fas fa-palette mr-3" style="color:var(--accent)"></i>Appearance & Themes</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     <button onclick="applyTheme('dark')" class="p-8 rounded-[2rem] text-left transition-all hover:scale-[1.02] active:scale-[0.98] shadow-xl flex flex-col justify-between group" style="background:#0a0f1e; border: 1px solid rgba(255,255,255,0.1); color:#ffffff; min-height: 180px;">
@@ -349,8 +349,8 @@
             </div>
         </section>
 
-        <section id="view-monitor" class="view hidden p-10 max-w-6xl mx-auto min-h-full flex flex-col justify-center">
-            <div class="panel p-10 sm:p-14 rounded-[3.5rem] shadow-2xl relative overflow-hidden">
+        <section id="view-monitor" class="view hidden p-6 sm:p-10 max-w-6xl mx-auto h-full overflow-y-auto flex flex-col">
+            <div class="panel p-8 sm:p-14 rounded-[3.5rem] shadow-2xl relative overflow-hidden my-auto">
                 <!-- Background Accents -->
                 <div class="absolute -top-24 -right-24 w-96 h-96 bg-indigo-500/10 blur-[120px] rounded-full"></div>
                 <div class="absolute -bottom-24 -left-24 w-96 h-96 bg-emerald-500/5 blur-[120px] rounded-full"></div>
@@ -390,14 +390,14 @@
                         <div class="text-[10px] font-black uppercase text-muted mb-6 tracking-[0.2em] opacity-60">Live Sockets</div>
                         <div id="stat-conns" class="text-4xl font-black text-white group-hover:text-indigo-400 group-hover:scale-110 transition-all duration-500">0</div>
                         <div class="mt-4 h-1 w-12 bg-indigo-500/20 mx-auto rounded-full overflow-hidden">
-                            <div class="h-full bg-indigo-500 w-1/4"></div>
+                            <div id="conn-bar" class="h-full bg-indigo-500 transition-all duration-1000" style="width: 10%"></div>
                         </div>
                     </div>
                     <div class="p-10 rounded-[2.5rem] glass-panel text-center border border-white/[0.03] group hover:border-indigo-500/30 transition-all duration-500">
-                        <div class="text-[10px] font-black uppercase text-muted mb-6 tracking-[0.2em] opacity-60">Live Nodes</div>
-                        <div id="stat-nodes" class="text-4xl font-black text-white group-hover:text-indigo-400 group-hover:scale-110 transition-all duration-500">1</div>
+                        <div class="text-[10px] font-black uppercase text-muted mb-6 tracking-[0.2em] opacity-60">CPU Load</div>
+                        <div id="stat-nodes" class="text-4xl font-black text-white group-hover:text-indigo-400 group-hover:scale-110 transition-all duration-500">0%</div>
                         <div class="mt-4 h-1 w-12 bg-indigo-500/20 mx-auto rounded-full overflow-hidden">
-                            <div class="h-full bg-indigo-500 w-full"></div>
+                            <div id="cpu-bar" class="h-full bg-indigo-500 transition-all duration-1000" style="width: 0%"></div>
                         </div>
                     </div>
                 </div>

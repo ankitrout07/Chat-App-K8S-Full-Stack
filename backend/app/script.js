@@ -1037,14 +1037,24 @@ function updateStatsUI(stats) {
         document.getElementById('stat-conns').innerText = stats.connections;
         
         // New metrics
-        if (document.getElementById('stat-nodes')) document.getElementById('stat-nodes').innerText = stats.cpu + '%'; // Using cpu as node power for flavor
+        if (document.getElementById('stat-nodes')) document.getElementById('stat-nodes').innerText = stats.cpu + '%';
         if (document.getElementById('mon-db-status')) document.getElementById('mon-db-status').innerText = stats.dbStatus;
         if (document.getElementById('mon-redis-status')) document.getElementById('mon-redis-status').innerText = stats.redisStatus;
         
         const memBar = document.getElementById('mem-bar');
+        const cpuBar = document.getElementById('cpu-bar');
+        const connBar = document.getElementById('conn-bar');
+
         if (memBar) {
             const pct = Math.min(100, (parseFloat(stats.memory) / 1000) * 100);
             memBar.style.width = pct + '%';
+        }
+        if (cpuBar) {
+            cpuBar.style.width = stats.cpu + '%';
+        }
+        if (connBar) {
+            const connPct = Math.min(100, (stats.connections / 10) * 100); // 10 is the bar max for visual
+            connBar.style.width = connPct + '%';
         }
 
         const heart = document.getElementById('heartbeat-dot');
