@@ -894,8 +894,7 @@ async function loadMessages(isLoadMore = false) {
         } else {
             // Initial load: append newest at the bottom
             data.reverse().forEach(msg => prependMessage(msg, false));
-            const container = document.getElementById('messages');
-            container.scrollTop = container.scrollHeight;
+            scrollToBottom();
         }
         offset += data.length;
     } catch (e) { console.error('Error loading messages', e); }
@@ -1020,6 +1019,16 @@ function observeMessage(el) {
     }
 }
 
+function scrollToBottom() {
+    const messages = document.getElementById('messages');
+    if (messages) {
+        messages.scrollTo({
+            top: messages.scrollHeight,
+            behavior: 'smooth'
+        });
+    }
+}
+
 // --- MONITORING STATS ---
 async function fetchStats() {
     try {
@@ -1088,82 +1097,7 @@ socket.on('group:deleted', (data) => {
 });
 
 socket.on('chat message', (data) => {
-
     if (data.room !== currentRoom) return;
-    const messages = document.getElementById('messages');
-    const emptyState = document.getElementById('empty-state');
-    if (emptyState) emptyState.style.display = 'none';
-
-    const isMe = data.sender === currentUser;
-    const isBot = data.isBot || data.sender === 'TunnelBot';
-    const isCommand = data.isCommand;
-    const msgEl = document.createElement('div');
-    msgEl.id = 'msg-' + data.id;
-    msgEl.dataset.msgId = data.id;
-
-    if (isBot) {
-        // Bot response with unique styling
-        msgEl.className = 'flex gap-4 flex-row group message-anim';
-        msgEl.innerHTML = `
-            <div class="avatar bot-avatar shadow-lg border border-cyan-500/30"><i class="fas fa-robot"></i></div>
-            <div class="relative flex flex-col items-start max-w-[85%]">
-                <div class="flex items-center gap-3 mb-1 px-1">
-                    <span class="text-[10px] font-black uppercase text-cyan-400 tracking-widest">TunnelBot</span>
-                    <span class="bot-badge">BOT</span>
-                    <span class="text-[9px] font-bold opacity-30 text-white uppercase tracking-tighter">${data.time}</span>
-                </div>
-                <div class="p-5 rounded-[1.5rem] rounded-tl-none shadow-xl bot-bubble border border-cyan-500/10">
-                    <p class="text-sm leading-relaxed font-medium">${parseMessageContent(data.text)}</p>
-                </div>
-            </div>`;
-    } else if (isCommand) {
-        // User's slash command (terminal style, right-aligned)
-        msgEl.className = `flex gap-4 flex-row-reverse group message-anim`;
-        msgEl.innerHTML = `
-            <div class="avatar shadow-lg border border-white/5" style="background:var(--accent)">${data.sender[0].toUpperCase()}</div>
-            <div class="relative flex flex-col items-end max-w-[75%]">
-                <div class="flex items-center gap-3 mb-1 px-1">
-                    <span class="text-[9px] font-bold opacity-30 text-white uppercase tracking-tighter">${data.time}</span>
-                </div>
-                <div class="p-3 px-5 rounded-[1.5rem] rounded-tr-none shadow-xl command-bubble border border-white/[0.05]">
-                    <p class="text-sm leading-relaxed font-mono font-medium"><span class="text-indigo-400">&gt;</span> ${parseMessageContent(data.text)}</p>
-                </div>
-            </div>`;
-    } else {
-        // Regular user message
-        const avatarColor = isMe ? 'var(--accent)' : '#1e293b';
-        const hasParent = data.parentId != null;
-        
-        msgEl.className = `flex gap-4 ${isMe ? 'flex-row-reverse' : 'flex-row'} group message-anim ${hasParent ? 'opacity-90' : ''}`;
-        msgEl.innerHTML = `
-            <div class="avatar shadow-lg border border-white/5" style="background:${avatarColor}">${data.sender[0].toUpperCase()}</div>
-            <div class="relative flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[75%]">
-                ${hasParent ? `
-                    <div class="flex items-center gap-2 mb-1 px-2 py-1 rounded-lg bg-white/[0.02] border border-white/[0.05] text-[9px] text-muted italic">
-                        <i class="fas fa-reply scale-x-[-1] opacity-40"></i>
-                        Threaded Response
-                    </div>
-                ` : ''}
-                <div class="flex items-center gap-3 mb-1 px-1">
-                    ${!isMe ? `<span class="text-[10px] font-black uppercase text-indigo-400 tracking-widest cursor-pointer hover:underline user-profile-trigger" data-user-id="${data.userId}">${data.sender}</span>` : `<span class="text-[10px] font-black uppercase text-white/40 tracking-widest cursor-pointer hover:underline user-profile-trigger" data-user-id="${data.userId}">You</span>`}
-                    <span class="text-[9px] font-bold opacity-30 text-white uppercase tracking-tighter">${data.time}</span>
-                </div>
-                <div class="p-4 rounded-[1.5rem] shadow-xl ${isMe ? 'rounded-tr-none text-white' : 'rounded-tl-none'} glass border border-white/[0.03] transition-all" 
-                     style="${isMe ? 'background:var(--bubble-me); border-color:rgba(255,255,255,0.1)' : 'background:var(--bubble-them)'}">
-                    <p class="text-sm leading-relaxed font-medium">${parseMessageContent(data.text)}</p>
-                    ${data.ephemeral ? '<p class="text-[8px] italic opacity-50 mt-1">Ephemeral - Not saved to archive</p>' : ''}
-                </div>
-                <div class="reactions flex flex-wrap gap-1.5 mt-2">${renderReactions(data.id, data.reactions)}</div>
-                    <div class="flex items-center gap-1.5">${isMe ? SVGS.sent : ''} ${data.updated_at ? `<span class="text-[8px] opacity-40 ml-1 italic">(edited)</span>` : ''}</div>
-                    <div class="hidden group-hover:flex gap-3 items-center ml-4 bg-black/40 backdrop-blur-md rounded-full px-3 py-1.5 border border-white/5">
-                        <button onclick="addReaction(${data.id}, '👍')" class="hover:scale-125 transition-transform">👍</button>
-                        <button onclick="addReaction(${data.id}, '❤️')" class="hover:scale-125 transition-transform">❤️</button>
-                        <button onclick="addReaction(${data.id}, '🔥')" class="hover:scale-125 transition-transform">🔥</button>
-                        <button onclick="setReply(${data.id}, '${data.sender}', '${data.text.replace(/'/g, "\\'")}')" title="Reply" class="hover:text-indigo-400 transition-colors ml-1"><i class="fas fa-reply text-[10px]"></i></button>
-                        ${isMe ? `<button onclick="startEdit(${data.id}, '${data.text.replace(/'/g, "\\'")}')" title="Edit" class="hover:text-emerald-400 transition-colors"><i class="fas fa-pen text-[10px]"></i></button>` : ''}
-                        <button onclick="${data.is_pinned ? `unpinMessage(${data.id})` : `pinMessage(${data.id})`}" title="${data.is_pinned ? 'Unpin' : 'Pin'}" class="${data.is_pinned ? 'text-amber-400' : 'hover:text-amber-400'} transition-colors">
-                            <i class="fas fa-thumbtack text-[10px]"></i>
-                        </button>
                         ${isMe ? `<button onclick="deleteMessage(${data.id})" class="hover:text-red-500 transition-colors ml-1"><i class="fas fa-trash-alt text-[10px]"></i></button>` : ''}
                     </div>
                 </div>
