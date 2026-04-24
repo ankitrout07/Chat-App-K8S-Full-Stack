@@ -6,6 +6,11 @@ let currentRoom = 'general';
 let currentGroupId = null;
 let replyingTo = null; // { id, sender, text }
 
+// Monitoring State
+let msgFrequencyChart = null;
+let frequencyData = Array(20).fill(0);
+let frequencyLabels = Array(20).fill('');
+
 const themes = {
     dark: { 
         '--bg-deep': '#050811', '--bg-main': '#0a0f1e', '--panel': 'rgba(16, 24, 39, 0.7)', 
@@ -636,11 +641,119 @@ function jumpToMessage(id) {
     const el = document.getElementById('msg-' + id);
     if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        el.classList.add('highlight-flash');
-        setTimeout(() => el.classList.remove('highlight-flash'), 2000);
+        el.classList.add('quantum-glow');
+        setTimeout(() => el.classList.remove('quantum-glow'), 4000);
     } else {
-        toast('Message too far back in history');
+        toast('Message in deep storage. Decrypting history...');
+        // Could implement auto-load here, but for now simple toast
     }
+}
+
+// Global Search Implementation
+let searchDebounce;
+async function performGlobalSearch(query, isSidebar = false) {
+    if (!query || query.length < 2) {
+        if (isSidebar) document.getElementById('search-results-overlay').classList.add('hidden');
+        return;
+    }
+    
+    try {
+        const res = await fetch(`/search?q=${encodeURIComponent(query)}`);
+        const results = await res.json();
+        
+        if (isSidebar) renderSidebarSearchResults(results);
+    } catch (err) {
+        console.error('Search failed:', err);
+    }
+}
+
+function renderSidebarSearchResults(results) {
+    const overlay = document.getElementById('search-results-overlay');
+    const list = document.getElementById('search-results-list');
+    
+    if (results.length === 0) {
+        list.innerHTML = '<div class="text-[10px] text-white/20 italic p-4 text-center">No matching transmissions found.</div>';
+    } else {
+        list.innerHTML = results.map(r => `
+            <div class="search-result-item p-3 rounded-2xl cursor-pointer group" onclick="jumpToSearchResult(${r.id}, '${r.room}')">
+                <div class="flex justify-between items-center mb-1">
+                    <span class="text-[9px] font-black text-indigo-400 uppercase tracking-widest">${r.sender}</span>
+                    <span class="text-[8px] text-white/10 group-hover:text-white/30 transition-colors uppercase font-bold">#${r.room}</span>
+                </div>
+                <p class="text-[10px] text-white/50 group-hover:text-white/80 transition-colors line-clamp-2 leading-relaxed">${r.text}</p>
+            </div>
+        `).join('');
+    }
+    overlay.classList.remove('hidden');
+}
+
+async function jumpToSearchResult(id, room) {
+    document.getElementById('search-results-overlay').classList.add('hidden');
+    document.getElementById('sidebar-search').value = '';
+    
+    if (currentRoom !== room) {
+        const group = allGroups.find(g => g.name === room);
+        joinRoom(room, group?.id);
+        // Wait for messages to load then jump
+        setTimeout(() => jumpToMessage(id), 800);
+    } else {
+        jumpToMessage(id);
+    }
+}
+
+function initCharts() {
+    const ctx = document.getElementById('msgFrequencyChart');
+    if (!ctx) return;
+
+    msgFrequencyChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: frequencyLabels,
+            datasets: [{
+                label: 'Messages / Minute',
+                data: frequencyData,
+                borderColor: '#6366f1',
+                backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                borderWidth: 2,
+                tension: 0.4,
+                fill: true,
+                pointRadius: 0,
+                pointHitRadius: 10
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 0 },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    backgroundColor: 'rgba(5, 8, 17, 0.9)',
+                    titleColor: '#6366f1',
+                    bodyColor: '#fff',
+                    borderColor: 'rgba(255,255,255,0.1)',
+                    borderWidth: 1,
+                    padding: 10,
+                    titleFont: { size: 10, weight: 'bold' },
+                    bodyFont: { size: 10 }
+                }
+            },
+            scales: {
+                x: { display: false },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(255,255,255,0.03)', drawBorder: false },
+                    ticks: { 
+                        color: 'rgba(255,255,255,0.2)', 
+                        font: { size: 8, weight: 'bold' },
+                        stepSize: 1
+                    }
+                }
+            }
+        }
+    });
 }
 
 // --- PROFILE & HOVER CARD ---
@@ -893,6 +1006,9 @@ function updateStatsUI(stats) {
         document.getElementById('stat-uptime').innerText = stats.uptime + 's';
         document.getElementById('stat-memory').innerText = stats.memory + 'MB';
         document.getElementById('stat-conns').innerText = stats.connections;
+        
+        // New metrics
+        if (document.getElementById('stat-nodes')) document.getElementById('stat-nodes').innerText = stats.cpu + '%'; // Using cpu as node power for flavor
         if (document.getElementById('mon-db-status')) document.getElementById('mon-db-status').innerText = stats.dbStatus;
         if (document.getElementById('mon-redis-status')) document.getElementById('mon-redis-status').innerText = stats.redisStatus;
         
@@ -906,6 +1022,15 @@ function updateStatsUI(stats) {
         if (heart) {
             heart.style.transform = 'scale(1.4)';
             setTimeout(() => heart.style.transform = 'scale(1)', 200);
+        }
+
+        // Update Frequency Chart
+        if (msgFrequencyChart) {
+            frequencyData.shift();
+            frequencyData.push(stats.msgFreq || 0);
+            frequencyLabels.shift();
+            frequencyLabels.push(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+            msgFrequencyChart.update('none'); // Update without animation for performance
         }
     }
 }
@@ -1202,13 +1327,35 @@ document.getElementById('input').addEventListener('keypress', (e) => {
 
 document.getElementById('form-submit-btn').addEventListener('click', sendMessage);
 
-document.getElementById('search').addEventListener('input', () => {
-    const term = document.getElementById('search').value.toLowerCase();
+document.getElementById('search').addEventListener('input', (e) => {
+    clearTimeout(searchDebounce);
+    const term = e.target.value.toLowerCase();
+    
+    // Real-time filtering of current view
     document.querySelectorAll('#messages .relative').forEach(msg => {
         const text = msg.innerText.toLowerCase();
         msg.style.display = text.includes(term) ? '' : 'none';
     });
     updateMessageCount();
+
+    // Global background search
+    searchDebounce = setTimeout(() => {
+        if (term.length > 2) performGlobalSearch(term, false);
+    }, 500);
+});
+
+document.getElementById('sidebar-search').addEventListener('input', (e) => {
+    clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(() => {
+        performGlobalSearch(e.target.value, true);
+    }, 400);
+});
+
+// Close search overlay when clicking outside
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('#sidebar-search') && !e.target.closest('#search-results-overlay')) {
+        document.getElementById('search-results-overlay').classList.add('hidden');
+    }
 });
 
 document.getElementById('messages').addEventListener('scroll', () => {
@@ -1243,6 +1390,7 @@ applyTheme(savedTheme);
 
 // Load groups first, then auto-join
 (async () => {
+    initCharts();
     if (authToken && authUser) {
         updateAuthUI();
         connectSocket();

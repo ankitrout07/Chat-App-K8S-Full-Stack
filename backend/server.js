@@ -263,6 +263,35 @@ async function runMigrations() {
       console.log('✅ Added updated_at column to messages');
     }
 
+    // Add tsvector column for full-text search if missing
+    const tsvCheck = await db.query(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_name = 'messages' AND column_name = 'tsv'
+    `);
+    if (tsvCheck.rows.length === 0) {
+      await db.query('ALTER TABLE messages ADD COLUMN tsv tsvector');
+      await db.query("UPDATE messages SET tsv = to_tsvector('english', COALESCE(text, ''))");
+      await db.query('CREATE INDEX IF NOT EXISTS messages_tsv_idx ON messages USING GIN(tsv)');
+      
+      // Create trigger to keep tsv updated
+      await db.query(`
+        CREATE OR REPLACE FUNCTION messages_tsvector_trigger() RETURNS trigger AS $$
+        begin
+          new.tsv := to_tsvector('english', coalesce(new.text, ''));
+          return new;
+        end
+        $$ LANGUAGE plpgsql;
+      `);
+      
+      await db.query(`
+        DROP TRIGGER IF EXISTS tsvectorupdate ON messages;
+        CREATE TRIGGER tsvectorupdate BEFORE INSERT OR UPDATE
+        ON messages FOR EACH ROW EXECUTE PROCEDURE messages_tsvector_trigger();
+      `);
+      
+      console.log('✅ Full-Text Search (tsvector) indexing enabled on messages');
+    }
+
     // Seed default channels if none exist
     const existing = await db.query('SELECT COUNT(*) FROM groups');
     if (parseInt(existing.rows[0].count) === 0) {
@@ -596,6 +625,40 @@ app.get('/messages', async (req, res) => {
     }
 });
 
+// Global Search Endpoint using Full-Text Search
+app.get('/search', async (req, res) => {
+    const query = req.query.q;
+    if (!query) return res.json([]);
+    
+    try {
+        // Using plainto_tsquery for easier fuzzy-ish matching or to_tsquery for advanced
+        const result = await db.query(
+            `SELECT m.id, m.sender, m.text, m.time, m.room, m.created_at,
+             ts_rank(m.tsv, plainto_tsquery('english', $1)) as rank
+             FROM messages m
+             WHERE m.tsv @@ plainto_tsquery('english', $1)
+             ORDER BY rank DESC, m.created_at DESC
+             LIMIT 20`,
+            [query]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Search error:', err);
+        // Fallback to ILIKE if tsvector fails or in memory mode
+        try {
+            const fallback = await db.query(
+                `SELECT id, sender, text, time, room, created_at 
+                 FROM messages WHERE text ILIKE $1 
+                 ORDER BY created_at DESC LIMIT 20`,
+                [`%${query}%`]
+            );
+            res.json(fallback.rows);
+        } catch (innerErr) {
+            res.status(500).json({ error: err.message });
+        }
+    }
+});
+
 // --- SOCKET.IO MIDDLEWARE (JWT AUTH) ---
 io.use((socket, next) => {
     const token = socket.handshake.auth.token;
@@ -788,18 +851,58 @@ async function executeBotCommand(commandText, socket, room) {
     }
 }
 
-// Emit real-time system stats every 3 seconds
+// Track message frequency
+let messageCountInWindow = 0;
+const messageHistory = [];
+const WINDOW_SIZE_MS = 60000; // 1 minute window
+
+// Add message to tracking
+function trackMessage() {
+    messageCountInWindow++;
+    const now = Date.now();
+    messageHistory.push(now);
+    // Cleanup old messages
+    while (messageHistory.length > 0 && messageHistory[0] < now - WINDOW_SIZE_MS) {
+        messageHistory.shift();
+    }
+}
+
+// Get CPU Usage
+let lastCpuUsage = process.cpuUsage();
+let lastCpuTime = Date.now();
+
+function getCpuPercentage() {
+    const currCpuUsage = process.cpuUsage(lastCpuUsage);
+    const currCpuTime = Date.now();
+    const elapsedMs = currCpuTime - lastCpuTime;
+    
+    lastCpuUsage = process.cpuUsage();
+    lastCpuTime = currCpuTime;
+
+    const totalUsageMs = (currCpuUsage.user + currCpuUsage.system) / 1000;
+    return Math.min(100, (totalUsageMs / elapsedMs) * 100).toFixed(1);
+}
+
+// Emit real-time system stats every 5 seconds (as requested)
 setInterval(async () => {
+    // Cleanup message history
+    const now = Date.now();
+    while (messageHistory.length > 0 && messageHistory[0] < now - WINDOW_SIZE_MS) {
+        messageHistory.shift();
+    }
+
     const stats = {
         uptime: Math.floor(process.uptime()),
         memory: (process.memoryUsage().rss / 1024 / 1024).toFixed(1),
+        cpu: getCpuPercentage(),
+        msgFreq: messageHistory.length, // Messages per minute
         connections: io.engine.clientsCount,
         dbStatus: 'HEALTHY',
         redisStatus: 'CONNECTED', 
         heartbeat: Date.now()
     };
     io.emit('system-stats', stats);
-}, 3000);
+}, 5000);
 
 io.on('connection', (socket) => {
     const { id: userId, username } = socket.user;
@@ -980,6 +1083,8 @@ io.on('connection', (socket) => {
     socket.on('chat message', async (data) => {
         const room = data.room || 'general';
         const text = (data.text || '').trim();
+        
+        trackMessage(); // Track for monitoring dashboard
 
         // 🤖 BOT INTERCEPTION: If the message starts with '/', route to the bot
         if (text.startsWith('/')) {

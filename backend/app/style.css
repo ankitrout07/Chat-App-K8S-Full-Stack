@@ -537,3 +537,62 @@ body.theme-solar {
     color: var(--accent);
     text-shadow: 0 0 10px var(--accent-glow);
 }
+
+/* --- Search & Monitoring Upgrades --- */
+
+/* Quantum Glow Highlight for search results */
+.quantum-glow {
+    animation: quantum-pulse 2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    position: relative;
+    z-index: 10;
+}
+
+.quantum-glow::after {
+    content: '';
+    position: absolute;
+    inset: -8px;
+    background: var(--accent);
+    filter: blur(25px);
+    opacity: 0.3;
+    border-radius: 1.5rem;
+    z-index: -1;
+    animation: glow-fade 2s ease-out forwards;
+}
+
+@keyframes quantum-pulse {
+    0% { transform: scale(1); }
+    10% { transform: scale(1.02); }
+    100% { transform: scale(1); }
+}
+
+@keyframes glow-fade {
+    0% { opacity: 0.6; filter: blur(25px); }
+    100% { opacity: 0; filter: blur(5px); }
+}
+
+/* Search Result Item Styling */
+.search-result-item {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    transition: all 0.2s ease;
+}
+
+.search-result-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: var(--accent);
+    transform: translateY(-2px);
+}
+
+/* Sidebar Search Specifics */
+#sidebar-search::placeholder {
+    transition: opacity 0.3s ease;
+}
+
+#sidebar-search:focus::placeholder {
+    opacity: 0.3;
+}
+
+#search-results-overlay {
+    backdrop-filter: blur(20px) saturate(180%);
+    background: rgba(10, 15, 30, 0.9);
+}
