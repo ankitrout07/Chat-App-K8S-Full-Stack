@@ -3,614 +3,149 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vortex Chat | High-Velocity Comms</title>
+    <title>Vortex Chat | Auth Gatekeeper</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="style.css?v=2">
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: #030712;
+            color: white;
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            position: relative;
+            overflow: hidden;
+        }
+        .bg-accents {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+        }
+        .bg-accents::before, .bg-accents::after {
+            content: '';
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(100px);
+            opacity: 0.15;
+            animation: pulse 10s infinite alternate;
+        }
+        .bg-accents::before {
+            width: 500px;
+            height: 500px;
+            background: #6366f1;
+            top: -100px;
+            left: -100px;
+        }
+        .bg-accents::after {
+            width: 400px;
+            height: 400px;
+            background: #06b6d4;
+            bottom: -50px;
+            right: -50px;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 0.1; }
+            100% { transform: scale(1.2); opacity: 0.2; }
+        }
+        #auth-container {
+            position: relative;
+            z-index: 10;
+            width: 100%;
+            max-width: 400px;
+            padding: 2.5rem;
+            border-radius: 2rem;
+            background: rgba(255, 255, 255, 0.02);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+        .brand-logo {
+            text-align: center;
+            font-family: 'Outfit', sans-serif;
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -0.05em;
+            margin-bottom: 2rem;
+        }
+        .brand-logo span {
+            color: #818cf8;
+        }
+        input {
+            width: 100%;
+            padding: 1rem 1.5rem;
+            margin-bottom: 1rem;
+            border-radius: 1rem;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            outline: none;
+            transition: all 0.3s;
+        }
+        input:focus {
+            border-color: #818cf8;
+            background: rgba(255, 255, 255, 0.05);
+        }
+        .btn-primary {
+            width: 100%;
+            padding: 1rem;
+            border-radius: 1rem;
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            color: white;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 0.5rem;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px -10px rgba(99, 102, 241, 0.5);
+        }
+        p {
+            text-align: center;
+            margin-top: 1.5rem;
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.5);
+        }
+        p span {
+            color: #818cf8;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        p span:hover {
+            text-decoration: underline;
+        }
+    </style>
 </head>
-<body class="selection:bg-indigo-500/30">
-
-    <div id="toast" class="toast" role="status" aria-live="polite"></div>
-
-    <!-- Sidebar Navigation -->
-    <aside id="main-sidebar" class="sidebar flex flex-col md:flex">
-        <div class="h-24 flex items-center px-8 gap-4 border-b border-white/[0.03]">
-            <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-2xl relative overflow-hidden group" style="background: var(--accent)">
-                <div class="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <i class="fas fa-bolt text-xl relative z-10"></i>
-            </div>
-            <div class="flex flex-col">
-                <h1 class="brand-logo">VORTEX<span class="text-indigo-400">CHAT</span></h1>
-                <span class="text-[9px] font-bold text-indigo-400/60 uppercase tracking-[0.3em] mt-1">Quantum v14</span>
-            </div>
-        </div>
+<body>
+    <div class="bg-accents"></div>
+    <div id="auth-container" class="glass-panel">
+        <h1 class="brand-logo">VORTEX<span>CHAT</span></h1>
         
-        <div class="flex-grow overflow-y-auto custom-scrollbar py-6">
-            <div class="sidebar-label">Search Archive</div>
-            <div class="px-3 mb-6 relative">
-                <i class="fas fa-search absolute left-7 top-1/2 -translate-y-1/2 text-white/20 text-[10px]"></i>
-                <input id="sidebar-search" class="w-full bg-white/[0.03] border border-white/[0.05] rounded-xl pl-10 pr-4 py-2.5 text-[10px] outline-none focus:border-indigo-500/40 focus:bg-white/[0.05] transition-all placeholder:text-white/10" placeholder="Filter decrypted messages...">
-                <div id="search-results-overlay" class="hidden absolute top-full left-3 right-3 mt-2 glass border border-white/10 rounded-2xl p-4 shadow-2xl z-50 max-h-[400px] overflow-y-auto custom-scrollbar">
-                    <div class="text-[8px] font-black uppercase text-indigo-400 mb-3 tracking-[0.2em]">Quantum Results</div>
-                    <div id="search-results-list" class="space-y-3"></div>
-                </div>
-            </div>
-
-            <div class="sidebar-label">Channels</div>
-            <div id="group-list" class="px-1 space-y-0.5">
-                <!-- Dynamically populated by script.js -->
-            </div>
-            <button id="create-group-btn" onclick="openGroupModal()" class="create-group-btn mx-3 mt-3">
-                <i class="fas fa-plus text-[10px]"></i>
-                <span>New Channel</span>
-            </button>
-
-            <div class="sidebar-label mt-6">Pinned Announcements</div>
-            <div id="pinned-messages" class="px-3 space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
-                <!-- Dynamically populated -->
-            </div>
-
-            <div class="sidebar-label">Intelligence</div>
-            <div id="nav-monitor" class="sidebar-item" onclick="showView('monitor')"><i class="fas fa-wave-square text-xs"></i> Monitoring</div>
-            <div id="nav-arch" class="sidebar-item" onclick="showView('arch')"><i class="fas fa-project-diagram text-xs"></i> Architecture</div>
-            <div id="nav-themes" class="sidebar-item" onclick="showView('themes')"><i class="fas fa-paint-roller text-xs"></i> Appearance</div>
-
-            <div class="sidebar-label">Direct Messages</div>
-            <div id="sidebar-users" class="px-3 space-y-1"></div>
+        <div id="login-form">
+            <input type="email" id="login-email" placeholder="Email" required>
+            <input type="password" id="login-password" placeholder="Password" required>
+            <button onclick="handleLogin()" class="btn-primary">Initialize Session</button>
+            <p>New to Vortex? <span onclick="toggleAuth()">Register</span></p>
         </div>
 
-        <div class="p-6 border-t border-white/[0.03] bg-white/[0.01]">
-            <div id="auth-nav" class="hidden flex items-center justify-between gap-3 p-4 rounded-2xl glass border border-white/[0.05] avatar-container relative">
-                <div id="user-avatar-trigger" class="flex items-center gap-3 cursor-pointer group w-full">
-                    <div id="user-avatar-mini" class="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white text-sm shadow-inner group-hover:scale-105 transition-all" style="background:var(--accent)">?</div>
-                    <div class="flex flex-col overflow-hidden">
-                        <div class="flex items-center gap-2">
-                            <span id="nav-username" class="text-xs font-black uppercase truncate text-white"></span>
-                            <span id="nav-status-emoji" class="text-[10px]">🟢</span>
-                        </div>
-                        <span id="nav-status-text" class="text-[9px] font-bold text-white/40 truncate uppercase tracking-wider">Available</span>
-                    </div>
-                </div>
-                
-                <div id="logout-menu" class="logout-dropdown shadow-2xl">
-                    <button onclick="openProfileModal()" class="w-full text-left text-xs font-bold text-white/80 hover:text-white mb-3 pb-3 border-b border-white/10 transition-colors"><i class="fas fa-user-astronaut mr-2" style="color:var(--accent)"></i> Neural Profile</button>
-                    <button id="btn-logout" class="logout-btn w-full text-left text-xs flex items-center"><i class="fas fa-power-off mr-2"></i> Disconnect Session</button>
-                </div>
-            </div>
-            <button id="login-btn" onclick="openAuthModal()" class="w-full btn-premium py-3 rounded-xl text-xs font-black uppercase tracking-widest">Identify</button>
-        </div>
-    </aside>
-
-    <div class="flex-grow flex flex-col h-full overflow-hidden relative">
-        <nav class="glass h-16 flex items-center justify-between px-6 border-b md:hidden">
-            <div class="flex items-center gap-3">
-                <button onclick="toggleSidebar()" class="text-white hover:text-indigo-400 mr-2 transition-colors"><i class="fas fa-bars text-lg"></i></button>
-                <i class="fas fa-bolt text-indigo-400"></i>
-                <span class="font-black text-lg uppercase tracking-tighter">VortexChat</span>
-            </div>
-            <button onclick="openAuthModal()" class="text-[10px] font-black uppercase tracking-widest bg-white/5 px-4 py-2 rounded-lg">Sign In</button>
-        </nav>
-
-        <!-- Chat Area -->
-        <section id="view-home" class="view flex flex-col h-full relative">
-            <header class="h-24 flex justify-between items-center px-10 glass-panel border-b border-white/[0.03] z-10 sticky top-0">
-                <div class="flex items-center gap-6">
-                    <div id="chat-header-icon" class="w-14 h-14 rounded-2xl flex items-center justify-center bg-white/[0.02] text-indigo-400 border border-white/[0.05] font-black text-xl shadow-inner">#</div>
-                    <div>
-                        <h2 id="active-room-display" class="font-black text-2xl uppercase tracking-tighter text-white">general</h2>
-                        <div class="flex items-center gap-2 mt-1">
-                            <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_12px_rgba(16,185,129,0.5)]"></span>
-                            <span id="room-status" class="text-[9px] font-bold text-muted uppercase tracking-[0.3em] opacity-40">Active Quantum Bridge</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="flex items-center gap-6">
-                    <div class="relative hidden lg:block">
-                        <i class="fas fa-search text-white/20 absolute left-5 top-1/2 -translate-y-1/2 text-xs"></i>
-                        <input id="search" class="bg-white/[0.02] border border-white/[0.05] rounded-2xl pl-12 pr-6 py-3 text-xs outline-none focus:border-indigo-500/40 focus:bg-white/[0.04] transition-all w-80 placeholder:text-white/10" placeholder="Search decrypted archive...">
-                    </div>
-                    <div class="flex items-center bg-white/[0.02] p-1 rounded-xl border border-white/[0.03] gap-2">
-                        <button id="invite-btn" onclick="openInviteModal()" class="w-12 h-12 flex items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 transition-all border border-indigo-500/20"><i class="fas fa-user-plus text-sm"></i></button>
-                        <button id="clear-chat" class="w-12 h-12 flex items-center justify-center rounded-lg text-white/20 hover:text-red-400 hover:bg-red-500/10 transition-all"><i class="fas fa-trash-alt text-sm"></i></button>
-                    </div>
-                </div>
-            </header>
-
-            <div id="messages" class="flex-grow overflow-y-auto px-10 py-10 space-y-8 custom-scrollbar scroll-smooth">
-                <!-- Initial Welcome State -->
-                <div id="empty-state" class="flex flex-col items-center justify-center h-full opacity-20 text-center pointer-events-none">
-                    <i class="fas fa-comments text-6xl mb-6"></i>
-                    <h3 class="font-black text-2xl uppercase tracking-widest">Secure Vortex Established</h3>
-                    <p class="text-xs uppercase tracking-[0.5em] mt-2">Awaiting decryption of incoming data...</p>
-                </div>
-            </div>
-
-            <div id="typing-indicator" class="absolute bottom-32 left-10 text-[10px] font-black uppercase text-indigo-400 opacity-0 transition-all transform translate-y-2 flex items-center gap-2">
-                <span class="flex gap-1">
-                    <span class="w-1 h-1 bg-indigo-500 rounded-full animate-bounce"></span>
-                    <span class="w-1 h-1 bg-indigo-500 rounded-full animate-bounce [animation-delay:0.2s]"></span>
-                    <span class="w-1 h-1 bg-indigo-500 rounded-full animate-bounce [animation-delay:0.4s]"></span>
-                </span>
-                Someone is decrypting...
-            </div>
-            
-            <footer class="px-10 pb-10 pt-2 bg-gradient-to-t from-bg-deep to-transparent">
-                <!-- Reply Preview -->
-                <div id="reply-preview" class="hidden max-w-6xl mx-auto mb-3 px-6 py-4 rounded-2xl bg-white/[0.03] border border-white/[0.05] flex items-center justify-between backdrop-blur-md animate-in slide-in-from-bottom-2">
-                    <div class="flex items-center gap-4">
-                        <div class="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-400 border border-indigo-500/20">
-                            <i class="fas fa-reply text-[10px]"></i>
-                        </div>
-                        <div class="text-[10px]">
-                            <div class="flex items-center gap-2 mb-0.5">
-                                <span class="font-black text-white/90 uppercase tracking-widest">Replying to</span>
-                                <span id="reply-user" class="font-bold text-indigo-400"></span>
-                            </div>
-                            <div id="reply-text" class="text-muted truncate max-w-[400px] opacity-60 italic"></div>
-                        </div>
-                    </div>
-                    <button onclick="cancelReply()" class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/5 text-white/20 hover:text-red-400 transition-all"><i class="fas fa-times text-xs"></i></button>
-                </div>
-
-                <div class="max-w-6xl mx-auto chat-input-container p-3 flex gap-4 shadow-2xl">
-                    <button type="button" onclick="document.getElementById('file-input').click()" class="w-14 h-14 flex items-center justify-center rounded-xl bg-white/[0.03] text-white/40 hover:text-white hover:bg-white/[0.08] transition-all active:scale-95">
-                        <i class="fas fa-plus-circle text-xl"></i>
-                    </button>
-                    <input type="file" id="file-input" class="hidden" onchange="uploadFile(this)">
-                    <div class="flex-grow relative flex items-center">
-                        <input id="input" autocomplete="off" class="w-full bg-transparent border-0 px-4 outline-none text-sm placeholder:text-white/10 text-white font-medium" placeholder="Transmit secure message...">
-                    </div>
-                    <button onclick="document.getElementById('form-submit-btn').click()" class="w-14 h-14 flex items-center justify-center rounded-xl btn-premium text-white active:scale-90">
-                        <i class="fas fa-paper-plane"></i>
-                    </button>
-                    <button id="form-submit-btn" class="hidden"></button>
-                </div>
-            </footer>
-        </section>
-
-        <section id="view-arch" class="view hidden p-6 sm:p-10 max-w-5xl mx-auto h-full overflow-y-auto flex flex-col">
-            <div class="panel p-8 sm:p-14 rounded-[3.5rem] shadow-2xl relative overflow-hidden my-auto">
-                <div class="flex items-center gap-4 mb-12">
-                    <div class="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 border border-indigo-500/20">
-                        <i class="fas fa-project-diagram"></i>
-                    </div>
-                    <div>
-                        <h3 class="text-3xl font-black tracking-tighter">System Architecture</h3>
-                        <p class="text-[10px] font-black uppercase tracking-[0.3em] text-muted opacity-50">Cloud-Native Distributed Messaging Mesh</p>
-                    </div>
-                </div>
-
-                <!-- Interactive Architecture Map -->
-                <div class="relative py-10">
-                    <!-- Layer 1: Ingress -->
-                    <div class="flex justify-center mb-16">
-                        <div class="group relative px-8 py-5 rounded-2xl glass border border-white/10 hover:border-indigo-500/50 transition-all cursor-help text-center min-w-[200px]">
-                            <div class="text-[9px] font-bold text-indigo-400 uppercase tracking-widest mb-2">Layer 1: Entry</div>
-                            <div class="flex items-center justify-center gap-3">
-                                <i class="fas fa-network-wired text-xl opacity-60"></i>
-                                <span class="font-black text-sm uppercase">Global Ingress</span>
-                            </div>
-                            <div class="absolute top-full left-1/2 -translate-x-1/2 w-0.5 h-16 bg-gradient-to-b from-indigo-500/50 to-transparent"></div>
-                            <!-- Tooltip -->
-                            <div class="absolute -top-20 left-1/2 -translate-x-1/2 w-48 p-3 rounded-xl bg-bg-deep border border-white/10 opacity-0 group-hover:opacity-100 transition-all pointer-events-none z-20 text-[10px] leading-relaxed shadow-2xl">
-                                Nginx Ingress Controller handles SSL termination and traffic routing to healthy pods.
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Layer 2: Application Pods -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-12 mb-16 px-10">
-                        <div class="group relative px-6 py-6 rounded-3xl bg-white/[0.02] border border-white/5 hover:border-emerald-500/40 transition-all cursor-help">
-                            <div class="flex items-center gap-4 mb-4">
-                                <div class="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400"><i class="fas fa-cubes"></i></div>
-                                <div>
-                                    <div class="font-black text-xs uppercase">Vortex Node A</div>
-                                    <div class="text-[9px] text-emerald-500 font-bold uppercase tracking-tighter">Pod: Running</div>
-                                </div>
-                            </div>
-                            <p class="text-[10px] text-muted leading-relaxed">Handles WebSocket sessions, JWT verification, and ChatOps bot logic.</p>
-                            <!-- Connection Line -->
-                            <div class="absolute top-1/2 -right-6 w-12 h-0.5 bg-white/5 hidden md:block"></div>
-                        </div>
-
-                        <div class="group relative px-6 py-6 rounded-3xl bg-white/[0.02] border border-white/5 hover:border-emerald-500/40 transition-all cursor-help">
-                            <div class="flex items-center gap-4 mb-4">
-                                <div class="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400"><i class="fas fa-cubes"></i></div>
-                                <div>
-                                    <div class="font-black text-xs uppercase">Vortex Node B</div>
-                                    <div class="text-[9px] text-emerald-500 font-bold uppercase tracking-tighter">Pod: Running</div>
-                                </div>
-                            </div>
-                            <p class="text-[10px] text-muted leading-relaxed">Parallel instance for HA. Scaled via Horizontal Pod Autoscaler (HPA).</p>
-                        </div>
-                    </div>
-
-                    <!-- Layer 3: Sync & Persistence -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-12">
-                        <!-- Redis -->
-                        <div class="group px-8 py-6 rounded-[2.5rem] glass-panel border border-red-500/10 hover:border-red-500/30 transition-all">
-                            <div class="flex items-center gap-4 mb-4">
-                                <div class="w-12 h-12 rounded-2xl bg-red-500/10 flex items-center justify-center text-red-400"><i class="fas fa-bolt"></i></div>
-                                <div>
-                                    <div class="font-black text-sm uppercase">Redis Pub/Sub</div>
-                                    <div class="text-[9px] text-red-500 font-bold uppercase tracking-widest">Transport Mesh</div>
-                                </div>
-                            </div>
-                            <p class="text-[10px] text-muted leading-relaxed">Synchronizes messages between pods. Ensures user on Node A can chat with user on Node B instantly.</p>
-                        </div>
-
-                        <!-- PostgreSQL -->
-                        <div class="group px-8 py-6 rounded-[2.5rem] glass-panel border border-blue-500/10 hover:border-blue-500/30 transition-all">
-                            <div class="flex items-center gap-4 mb-4">
-                                <div class="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-400"><i class="fas fa-database"></i></div>
-                                <div>
-                                    <div class="font-black text-sm uppercase">PostgreSQL</div>
-                                    <div class="text-[9px] text-blue-500 font-bold uppercase tracking-widest">Atomic Archive</div>
-                                </div>
-                            </div>
-                            <p class="text-[10px] text-muted leading-relaxed">Relational storage for users, groups, and permanent message history with ACID compliance.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="mt-12 p-6 rounded-2xl bg-white/[0.02] border border-white/[0.05] flex items-center gap-6">
-                    <i class="fas fa-info-circle text-indigo-400 text-xl"></i>
-                    <p class="text-[10px] text-muted leading-relaxed font-medium uppercase tracking-wider">
-                        The architecture is fully <span class="text-white font-bold">stateless at the application tier</span>, allowing for seamless scaling and zero-downtime rolling updates within the Kubernetes cluster.
-                    </p>
-                </div>
-            </div>
-        </section>
-
-        <section id="view-tech" class="view hidden p-10 max-w-4xl mx-auto min-h-full flex flex-col justify-center">
-            <div class="panel p-8 sm:p-10 rounded-[2.5rem] shadow-2xl">
-                <h3 class="text-2xl font-black mb-6 tracking-tight"><i class="fas fa-layer-group mr-3" style="color:var(--accent)"></i>Technology Stack</h3>
-                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div class="p-5 rounded-2xl panel text-center border"><i class="fab fa-js text-yellow-500 text-3xl mb-2"></i><div class="font-bold text-sm">Vanilla JS</div></div>
-                    <div class="p-5 rounded-2xl panel text-center border"><i class="fab fa-node-js text-green-500 text-3xl mb-2"></i><div class="font-bold text-sm">Node.js</div></div>
-                    <div class="p-5 rounded-2xl panel text-center border"><i class="fas fa-database text-blue-400 text-3xl mb-2"></i><div class="font-bold text-sm">PostgreSQL</div></div>
-                    <div class="p-5 rounded-2xl panel text-center border"><i class="fas fa-server text-red-500 text-3xl mb-2"></i><div class="font-bold text-sm">Redis</div></div>
-                    <div class="p-5 rounded-2xl panel text-center border"><i class="fas fa-plug text-slate-400 text-3xl mb-2"></i><div class="font-bold text-sm">Socket.IO</div></div>
-                    <div class="p-5 rounded-2xl panel text-center border"><i class="fas fa-dharmachakra text-blue-500 text-3xl mb-2"></i><div class="font-bold text-sm">Kubernetes</div></div>
-                    <div class="p-5 rounded-2xl panel text-center border"><i class="fab fa-docker text-blue-400 text-3xl mb-2"></i><div class="font-bold text-sm">Docker</div></div>
-                    <div class="p-5 rounded-2xl panel text-center border"><i class="fas fa-wind text-cyan-400 text-3xl mb-2"></i><div class="font-bold text-sm">Tailwind CSS</div></div>
-                </div>
-            </div>
-        </section>
-
-        <section id="view-about" class="view hidden p-6 sm:p-10 max-w-4xl mx-auto h-full overflow-y-auto flex flex-col">
-            <div class="panel p-8 sm:p-10 rounded-[2.5rem] shadow-2xl my-auto">
-                <h3 class="text-2xl font-black mb-6 tracking-tight"><i class="fas fa-circle-info mr-3" style="color:var(--accent)"></i>About Vortex Chat</h3>
-                <p class="mb-4 text-muted leading-relaxed">Vortex Chat is a high-performance, real-time messaging platform built specifically to run in clustered Kubernetes environments.</p>
-                <p class="mb-6 text-muted leading-relaxed">It utilizes a modern Node.js backend seamlessly integrated with Socket.IO for duplex communication, ensuring messages are delivered with sub-millisecond latency. Behind the scenes, Redis handles pub/sub routing between pod replicas, while PostgreSQL securely persists chat history.</p>
-                <p class="leading-relaxed font-bold" style="color:var(--accent)">Version: 14.0.0 (K8s Control)</p>
-            </div>
-        </section>
-
-        <section id="view-themes" class="view hidden p-6 sm:p-10 max-w-4xl mx-auto h-full overflow-y-auto flex flex-col">
-            <div class="panel p-8 sm:p-10 rounded-[2.5rem] shadow-2xl my-auto">
-                <h3 class="text-2xl font-black mb-6 tracking-tight"><i class="fas fa-palette mr-3" style="color:var(--accent)"></i>Appearance & Themes</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <button onclick="applyTheme('dark')" class="p-8 rounded-[2rem] text-left transition-all hover:scale-[1.02] active:scale-[0.98] shadow-xl flex flex-col justify-between group" style="background:#0a0f1e; border: 1px solid rgba(255,255,255,0.1); color:#ffffff; min-height: 180px;">
-                        <div>
-                            <h4 class="font-black text-xl tracking-tight">Quantum Dark</h4>
-                            <p class="text-[10px] uppercase font-bold tracking-widest opacity-40 mt-2 text-indigo-400">Deep Space Protocol</p>
-                        </div>
-                        <div class="flex justify-between items-center mt-4">
-                            <i class="fas fa-moon text-2xl opacity-20 group-hover:opacity-100 transition-opacity"></i>
-                            <span class="text-[10px] font-black uppercase opacity-0 group-hover:opacity-100 transition-opacity">Select</span>
-                        </div>
-                    </button>
-                    <button onclick="applyTheme('light')" class="p-8 rounded-[2rem] text-left transition-all hover:scale-[1.02] active:scale-[0.98] shadow-xl flex flex-col justify-between group" style="background:#f8fafc; border: 1px solid rgba(0,0,0,0.1); color:#0f172a; min-height: 180px;">
-                        <div>
-                            <h4 class="font-black text-xl tracking-tight">Daylight Poly</h4>
-                            <p class="text-[10px] uppercase font-bold tracking-widest opacity-40 mt-2 text-indigo-600">High Visibility</p>
-                        </div>
-                        <div class="flex justify-between items-center mt-4">
-                            <i class="fas fa-sun text-2xl opacity-20 group-hover:opacity-100 transition-opacity"></i>
-                            <span class="text-[10px] font-black uppercase opacity-0 group-hover:opacity-100 transition-opacity">Select</span>
-                        </div>
-                    </button>
-                    <button onclick="applyTheme('solar')" class="p-8 rounded-[2rem] text-left transition-all hover:scale-[1.02] active:scale-[0.98] shadow-xl flex flex-col justify-between group" style="background:#002b36; border: 1px solid rgba(42,161,152,0.2); color:#839496; min-height: 180px;">
-                        <div>
-                            <h4 class="font-black text-xl tracking-tight" style="color:#b58900">Solar Terminal</h4>
-                            <p class="text-[10px] uppercase font-bold tracking-widest opacity-40 mt-2 text-emerald-500">Retro Grade</p>
-                        </div>
-                        <div class="flex justify-between items-center mt-4">
-                            <i class="fas fa-terminal text-2xl opacity-20 group-hover:opacity-100 transition-opacity"></i>
-                            <span class="text-[10px] font-black uppercase opacity-0 group-hover:opacity-100 transition-opacity">Select</span>
-                        </div>
-                    </button>
-                    <!-- NEW QUANTUM THEMES -->
-                    <button onclick="applyTheme('cyberpunk')" class="p-8 rounded-[2rem] text-left transition-all hover:scale-[1.02] active:scale-[0.98] shadow-xl flex flex-col justify-between group" style="background:#0c001a; border: 1px solid rgba(255,0,255,0.2); color:#00ffcc; min-height: 180px;">
-                        <div>
-                            <h4 class="font-black text-xl tracking-tight">Cyber Neon</h4>
-                            <p class="text-[10px] uppercase font-bold tracking-widest opacity-40 mt-2 text-pink-500">Night City Uplink</p>
-                        </div>
-                        <div class="flex justify-between items-center mt-4">
-                            <i class="fas fa-bolt text-2xl opacity-20 group-hover:opacity-100 transition-opacity"></i>
-                            <span class="text-[10px] font-black uppercase opacity-0 group-hover:opacity-100 transition-opacity">Engage</span>
-                        </div>
-                    </button>
-                    <button onclick="applyTheme('space')" class="p-8 rounded-[2rem] text-left transition-all hover:scale-[1.02] active:scale-[0.98] shadow-xl flex flex-col justify-between group" style="background:#000; border: 1px solid rgba(255,255,255,0.1); color:#fff; min-height: 180px;">
-                        <div>
-                            <h4 class="font-black text-xl tracking-tight">Deep Space</h4>
-                            <p class="text-[10px] uppercase font-bold tracking-widest opacity-40 mt-2 text-sky-400">Void Protocol</p>
-                        </div>
-                        <div class="flex justify-between items-center mt-4">
-                            <i class="fas fa-star text-2xl opacity-20 group-hover:opacity-100 transition-opacity"></i>
-                            <span class="text-[10px] font-black uppercase opacity-0 group-hover:opacity-100 transition-opacity">Warp</span>
-                        </div>
-                    </button>
-                    <button onclick="applyTheme('emerald')" class="p-8 rounded-[2rem] text-left transition-all hover:scale-[1.02] active:scale-[0.98] shadow-xl flex flex-col justify-between group" style="background:#01160a; border: 1px solid rgba(16,185,129,0.2); color:#dcfce7; min-height: 180px;">
-                        <div>
-                            <h4 class="font-black text-xl tracking-tight">Emerald Ghost</h4>
-                            <p class="text-[10px] uppercase font-bold tracking-widest opacity-40 mt-2 text-emerald-500">Secure Matrix</p>
-                        </div>
-                        <div class="flex justify-between items-center mt-4">
-                            <i class="fas fa-shield-alt text-2xl opacity-20 group-hover:opacity-100 transition-opacity"></i>
-                            <span class="text-[10px] font-black uppercase opacity-0 group-hover:opacity-100 transition-opacity">Verify</span>
-                        </div>
-                    </button>
-                </div>
-            </div>
-        </section>
-
-        <section id="view-monitor" class="view hidden p-6 sm:p-10 max-w-6xl mx-auto h-full overflow-y-auto flex flex-col">
-            <div class="panel p-8 sm:p-14 rounded-[3.5rem] shadow-2xl relative overflow-hidden my-auto">
-                <!-- Background Accents -->
-                <div class="absolute -top-24 -right-24 w-96 h-96 bg-indigo-500/10 blur-[120px] rounded-full"></div>
-                <div class="absolute -bottom-24 -left-24 w-96 h-96 bg-emerald-500/5 blur-[120px] rounded-full"></div>
-                
-                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-16 relative z-10 gap-6">
-                    <div>
-                        <h3 class="text-4xl font-black tracking-tighter mb-2 flex items-center gap-4">
-                            <span class="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 border border-indigo-500/20">
-                                <i class="fas fa-microchip"></i>
-                            </span>
-                            System Intelligence
-                        </h3>
-                        <p class="text-[10px] font-black uppercase tracking-[0.4em] text-muted ml-16 opacity-50">Real-time Infrastructure Analytics Engine</p>
-                    </div>
-                    <div class="flex items-center gap-4 bg-white/[0.03] px-6 py-3 rounded-2xl border border-white/[0.05] backdrop-blur-md">
-                        <div id="heartbeat-dot" class="w-2.5 h-2.5 bg-emerald-500 rounded-full shadow-[0_0_15px_rgba(16,185,129,0.8)] transition-transform duration-200"></div>
-                        <span class="text-[10px] font-black uppercase tracking-widest text-emerald-500">K8s Cluster Heartbeat</span>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-16 relative z-10">
-                    <div class="p-10 rounded-[2.5rem] glass-panel text-center border border-white/[0.03] group hover:border-indigo-500/30 transition-all duration-500">
-                        <div class="text-[10px] font-black uppercase text-muted mb-6 tracking-[0.2em] opacity-60">Uptime</div>
-                        <div id="stat-uptime" class="text-4xl font-black text-white group-hover:text-indigo-400 group-hover:scale-110 transition-all duration-500">0s</div>
-                        <div class="mt-4 h-1 w-12 bg-indigo-500/20 mx-auto rounded-full overflow-hidden">
-                            <div class="h-full bg-indigo-500 w-2/3"></div>
-                        </div>
-                    </div>
-                    <div class="p-10 rounded-[2.5rem] glass-panel text-center border border-white/[0.03] group hover:border-indigo-500/30 transition-all duration-500">
-                        <div class="text-[10px] font-black uppercase text-muted mb-6 tracking-[0.2em] opacity-60">Memory (RSS)</div>
-                        <div id="stat-memory" class="text-4xl font-black text-white group-hover:text-indigo-400 group-hover:scale-110 transition-all duration-500">0MB</div>
-                        <div class="mt-4 h-1 w-12 bg-indigo-500/20 mx-auto rounded-full overflow-hidden">
-                            <div id="mem-bar" class="h-full bg-indigo-500 transition-all duration-1000" style="width: 40%"></div>
-                        </div>
-                    </div>
-                    <div class="p-10 rounded-[2.5rem] glass-panel text-center border border-white/[0.03] group hover:border-indigo-500/30 transition-all duration-500">
-                        <div class="text-[10px] font-black uppercase text-muted mb-6 tracking-[0.2em] opacity-60">Live Sockets</div>
-                        <div id="stat-conns" class="text-4xl font-black text-white group-hover:text-indigo-400 group-hover:scale-110 transition-all duration-500">0</div>
-                        <div class="mt-4 h-1 w-12 bg-indigo-500/20 mx-auto rounded-full overflow-hidden">
-                            <div id="conn-bar" class="h-full bg-indigo-500 transition-all duration-1000" style="width: 10%"></div>
-                        </div>
-                    </div>
-                    <div class="p-10 rounded-[2.5rem] glass-panel text-center border border-white/[0.03] group hover:border-indigo-500/30 transition-all duration-500">
-                        <div class="text-[10px] font-black uppercase text-muted mb-6 tracking-[0.2em] opacity-60">CPU Load</div>
-                        <div id="stat-nodes" class="text-4xl font-black text-white group-hover:text-indigo-400 group-hover:scale-110 transition-all duration-500">0%</div>
-                        <div class="mt-4 h-1 w-12 bg-indigo-500/20 mx-auto rounded-full overflow-hidden">
-                            <div id="cpu-bar" class="h-full bg-indigo-500 transition-all duration-1000" style="width: 0%"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-8 relative z-10">
-                    <div class="md:col-span-2 p-10 rounded-[3rem] glass-panel border border-white/[0.03]">
-                        <h4 class="text-[10px] font-black uppercase tracking-[0.3em] text-muted mb-8 opacity-60">Infrastructure Topology</h4>
-                        <div class="space-y-6">
-                            <div class="flex justify-between items-center p-4 rounded-2xl bg-white/[0.02] border border-white/[0.03]">
-                                <div class="flex items-center gap-4">
-                                    <div class="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500"><i class="fas fa-database"></i></div>
-                                    <span class="text-sm font-bold text-white/80">PostgreSQL Distributed Cluster</span>
-                                </div>
-                                <span id="mon-db-status" class="px-4 py-1.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[9px] font-black uppercase border border-emerald-500/20 tracking-widest">Optimal</span>
-                            </div>
-                            <div class="flex justify-between items-center p-4 rounded-2xl bg-white/[0.02] border border-white/[0.03]">
-                                <div class="flex items-center gap-4">
-                                    <div class="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400"><i class="fas fa-layer-group"></i></div>
-                                    <span class="text-sm font-bold text-white/80">Redis Pub/Sub Mesh</span>
-                                </div>
-                                <span id="mon-redis-status" class="px-4 py-1.5 rounded-full bg-indigo-500/10 text-indigo-500 text-[9px] font-black uppercase border border-indigo-500/20 tracking-widest">Active</span>
-                            </div>
-                            <div class="flex justify-between items-center p-4 rounded-2xl bg-white/[0.02] border border-white/[0.03]">
-                                <div class="flex items-center gap-4">
-                                    <div class="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center text-cyan-400"><i class="fas fa-network-wired"></i></div>
-                                    <span class="text-sm font-bold text-white/80">Socket.IO Clustering</span>
-                                </div>
-                                <span class="px-4 py-1.5 rounded-full bg-cyan-500/10 text-cyan-500 text-[9px] font-black uppercase border border-cyan-500/20 tracking-widest">Scaling</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="p-10 rounded-[3rem] glass-panel flex flex-col items-center justify-center text-center border border-white/[0.03] group">
-                        <div class="w-24 h-24 rounded-full bg-indigo-500/10 flex items-center justify-center mb-8 border border-indigo-500/20 shadow-2xl relative">
-                            <div class="absolute inset-0 rounded-full border-2 border-indigo-500/20 animate-ping"></div>
-                            <i class="fas fa-shield-halved text-4xl text-indigo-400 group-hover:scale-110 transition-transform"></i>
-                        </div>
-                        <h4 class="text-lg font-black mb-2 tracking-tight uppercase text-white">Quantum Guard</h4>
-                        <p class="text-[9px] text-muted font-bold uppercase tracking-[0.3em] opacity-40">Protocol v14 Secured</p>
-                        <div class="mt-8 flex gap-2">
-                            <div class="w-2 h-2 rounded-full bg-emerald-500"></div>
-                            <div class="w-2 h-2 rounded-full bg-indigo-500/40"></div>
-                            <div class="w-2 h-2 rounded-full bg-indigo-500/40"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Message Frequency Chart -->
-                <div class="mt-8 p-10 rounded-[3rem] glass-panel border border-white/[0.03] relative z-10">
-                    <div class="flex justify-between items-center mb-8">
-                        <h4 class="text-[10px] font-black uppercase tracking-[0.3em] text-muted opacity-60">Real-time Message Frequency</h4>
-                        <div class="flex items-center gap-4">
-                            <div class="flex items-center gap-2">
-                                <span class="w-2 h-2 bg-indigo-500 rounded-full"></span>
-                                <span class="text-[9px] font-bold text-muted uppercase">Msgs / Min</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="h-64">
-                        <canvas id="msgFrequencyChart"></canvas>
-                    </div>
-                </div>
-            </div>
-        </section>
-    </div>
-
-
-    <!-- Create Group Modal -->
-    <div id="group-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-        <div class="panel p-8 rounded-[2.5rem] w-full max-w-md shadow-2xl relative overflow-hidden">
-            <div class="absolute -top-16 -right-16 w-48 h-48 bg-indigo-500/10 blur-[80px] rounded-full pointer-events-none"></div>
-            <div class="absolute -bottom-16 -left-16 w-48 h-48 bg-cyan-500/5 blur-[80px] rounded-full pointer-events-none"></div>
-            <button onclick="closeGroupModal()" class="absolute top-6 right-6 text-muted hover:text-red-500 transition-colors z-10"><i class="fas fa-times"></i></button>
-            <div class="relative z-10">
-                <div class="w-14 h-14 rounded-2xl bg-indigo-500/10 flex items-center justify-center mb-6 border border-indigo-500/20">
-                    <i class="fas fa-hashtag text-2xl text-indigo-400"></i>
-                </div>
-                <h3 class="text-2xl font-black mb-2 tracking-tight">Create Channel</h3>
-                <p class="text-xs text-muted mb-8">Channels are where your team communicates. They're best organized around a topic.</p>
-                <form id="group-form" onsubmit="handleCreateGroup(event)" class="space-y-4">
-                    <div class="relative">
-                        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 font-bold">#</span>
-                        <input id="group-name-input" class="w-full input pl-9" placeholder="e.g. project-alpha" autocomplete="off" required maxlength="30">
-                    </div>
-                    <p id="group-error" class="text-red-400 text-xs hidden"></p>
-                    <button type="submit" id="group-submit-btn" class="w-full btn-premium py-3 rounded-xl text-xs font-black uppercase tracking-widest">
-                        <span id="group-submit-text">Create Channel</span>
-                        <i id="group-submit-spinner" class="fas fa-circle-notch fa-spin hidden ml-2"></i>
-                    </button>
-                </form>
-            </div>
+        <div id="signup-form" style="display: none;">
+            <input type="text" id="reg-username" placeholder="Username" required>
+            <input type="email" id="reg-email" placeholder="Email" required>
+            <input type="password" id="reg-password" placeholder="Password" required>
+            <button onclick="handleSignup()" class="btn-primary">Create Identity</button>
+            <p>Already have a session? <span onclick="toggleAuth()">Login</span></p>
         </div>
     </div>
 
-    <!-- Auth Modal -->
-    <div id="auth-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-        <div class="panel p-8 rounded-[2.5rem] w-full max-w-md shadow-2xl relative">
-            <button onclick="closeAuthModal()" class="absolute top-6 right-6 text-muted hover:text-red-500"><i class="fas fa-times"></i></button>
-            <h3 id="auth-title" class="text-2xl font-black mb-2 tracking-tight">Login</h3>
-            <p id="auth-subtitle" class="text-xs text-muted mb-8">Ready to resume your encrypted vortex?</p>
-            
-            <form id="auth-form" class="space-y-4">
-                <input id="auth-user" class="w-full input" placeholder="Username" required>
-                <input id="auth-pass" type="password" class="w-full input" placeholder="Password" required>
-                <button type="submit" class="w-full btn btn-primary mt-4">Confirm</button>
-            </form>
-
-            <div class="relative my-8">
-                <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-white/5"></div></div>
-                <div class="relative flex justify-center text-[10px] uppercase font-bold"><span class="bg-bg-deep px-4 text-muted">Or Secure via Cloud</span></div>
-            </div>
-
-            <button id="google-custom-btn" onclick="triggerGoogleLogin()" class="w-full flex items-center justify-center gap-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl py-3 px-4 transition-all group">
-                <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" class="w-5 h-5 group-hover:scale-110 transition-transform" alt="Google Logo">
-                <span class="text-xs font-black uppercase tracking-widest text-white/80">Sign in with Google</span>
-            </button>
-            <div id="google-login-btn-hidden" class="hidden"></div>
-            
-            <p class="text-center text-xs text-muted mt-6">
-                <span id="auth-toggle-text">New to Vortex Chat?</span> 
-                <button onclick="toggleAuthMode()" id="auth-toggle-btn" class="ml-1 font-bold" style="color:var(--accent)">Register</button>
-            </p>
-        </div>
-    </div>
-    <!-- Invite Modal -->
-    <div id="invite-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-        <div class="panel p-8 rounded-[2.5rem] w-full max-w-sm shadow-2xl relative">
-            <button onclick="closeInviteModal()" class="absolute top-6 right-6 text-muted hover:text-red-500"><i class="fas fa-times"></i></button>
-            <h3 class="text-2xl font-black mb-2 tracking-tight">Expand Group</h3>
-            <p class="text-xs text-muted mb-8 italic">Invite a verified node to join <span id="invite-group-name" class="text-indigo-400 font-bold"></span></p>
-            
-            <div class="space-y-4">
-                <select id="invite-user-select" class="w-full input">
-                    <!-- Populated by JS -->
-                </select>
-                <button onclick="sendInvite()" class="w-full btn-premium py-4 rounded-xl text-[10px] font-black uppercase tracking-widest mt-4">Broadcast Invite</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="notification-stack" class="fixed top-6 right-6 z-[9999] flex flex-col gap-3 pointer-events-none w-[320px]"></div>
-
-    <!-- Profile Modal -->
-    <div id="profile-modal" class="hidden fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-        <div class="panel p-8 rounded-[2.5rem] w-full max-w-md shadow-2xl relative border border-white/10">
-            <button onclick="closeProfileModal()" class="absolute top-6 right-6 text-muted hover:text-red-500"><i class="fas fa-times"></i></button>
-            
-            <div class="flex flex-col items-center mb-8">
-                <div id="profile-avatar" class="w-24 h-24 rounded-3xl flex items-center justify-center text-3xl font-black text-white shadow-2xl mb-4 border-2 border-white/10" style="background:var(--accent)">?</div>
-                <h3 id="profile-username" class="text-2xl font-black tracking-tight text-white uppercase">Username</h3>
-                <span id="profile-status" class="text-[9px] font-bold text-emerald-400 uppercase tracking-[0.3em] mt-1">Identity Verified</span>
-            </div>
-
-            <div class="space-y-6">
-                <div class="space-y-2">
-                    <label class="text-[10px] font-black uppercase text-white/30 tracking-widest px-1">Current Protocol / Status</label>
-                    <div class="flex gap-2">
-                        <select id="profile-status-emoji" class="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-lg outline-none focus:border-indigo-500/50">
-                            <option value="🟢">🟢 Available</option>
-                            <option value="🔴">🔴 Busy / Focus</option>
-                            <option value="🟡">🟡 Away / AFK</option>
-                            <option value="🚀">🚀 Deploying</option>
-                            <option value="🔋">🔋 Charging</option>
-                            <option value="🧊">🧊 Deep Sleep</option>
-                        </select>
-                        <input id="profile-status-text" class="flex-grow input py-3" placeholder="Status message..." maxlength="30">
-                    </div>
-                </div>
-
-                <div class="space-y-2">
-                    <label class="text-[10px] font-black uppercase text-white/30 tracking-widest px-1">Professional Bio / Designation</label>
-                    <textarea id="profile-bio-input" class="w-full input min-h-[100px] resize-none text-sm leading-relaxed" placeholder="Tell the team about your mission..."></textarea>
-                </div>
-
-                <button onclick="saveProfile()" class="w-full btn-premium py-4 rounded-2xl text-xs font-black uppercase tracking-widest shadow-[0_10px_20px_rgba(99,102,241,0.2)]">
-                    Synchronize Profile
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- User Hover Card -->
-    <div id="user-hover-card" class="fixed pointer-events-none opacity-0 z-[200] w-64 glass-panel rounded-[2rem] p-6 border border-white/10 shadow-2xl transition-all duration-300 translate-y-2 scale-95">
-        <div class="flex items-center gap-4 mb-4">
-            <div id="hover-avatar" class="w-14 h-14 rounded-2xl flex items-center justify-center font-black text-white shadow-xl" style="background:var(--accent)">?</div>
-            <div class="flex flex-col">
-                <h4 id="hover-username" class="font-black text-sm uppercase text-white tracking-tight">Username</h4>
-                <div class="flex items-center gap-1.5 mt-0.5">
-                    <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
-                    <span id="hover-status" class="text-[8px] font-bold text-emerald-400 uppercase tracking-widest">Online</span>
-                </div>
-            </div>
-        </div>
-        <div class="space-y-3">
-            <div class="h-px bg-white/5"></div>
-            <p id="hover-bio" class="text-[10px] text-white/60 leading-relaxed italic">Neural interface active...</p>
-            <div class="flex items-center gap-2 pt-1">
-                <span class="text-[8px] font-black uppercase text-indigo-400/50 tracking-widest">Dept: Engineering</span>
-            </div>
-        </div>
-    </div>
-    
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="script.js?v=2"></script>
+    <script src="auth.js"></script>
 </body>
 </html>

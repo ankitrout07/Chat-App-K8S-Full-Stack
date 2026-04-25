@@ -165,14 +165,18 @@ function connectSocket() {
     }, 500);
 }
 
-function logout() {
+async function logout() {
     localStorage.removeItem('vortex_auth_token');
     localStorage.removeItem('vortex_auth_user');
     socket.disconnect();
     authUser = null; authToken = null;
-    updateAuthUI();
-    toast('Logged out');
-    fetchAndRenderUsers();
+    
+    // Supabase Sign Out if configured
+    if (typeof supabase !== 'undefined') {
+        await supabase.auth.signOut();
+    }
+    
+    window.location.href = '/';
 }
 
 // --- GOOGLE AUTH ---

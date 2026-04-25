@@ -26,7 +26,7 @@ run:
 	cd backend && node server.js
 
 db-init:
-	psql $(DB_NAME) < $(K8S_DIR)/init.sql
+	psql $(DB_NAME) < database/init.sql
 
 docker-build:
 	cd backend && docker build -t $(APP_IMAGE) .

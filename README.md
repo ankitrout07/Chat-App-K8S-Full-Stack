@@ -43,7 +43,8 @@ Chat-App-K8S-Full-Stack/
 │   ├── 02-db-statefulset.yaml
 │   ├── 03-app-deployment.yaml
 │   ├── 04-ingress.yaml
-│   ├── 05-redis-statefulset.yaml
+│   └── 05-redis-statefulset.yaml
+├── database/
 │   └── init.sql
 ├── .github/workflows/
 │   └── main.yml
@@ -106,7 +107,7 @@ If you want the local database seeded with the base schema:
 make db-init
 ```
 
-This applies [k8s-manifests/init.sql](/home/ankit/git/Chat-App-K8S-Full-Stack/k8s-manifests/init.sql:1) to the database named by `DB_NAME` in the `Makefile`, which defaults to `chatapp`.
+This applies [database/init.sql](/home/ankit/git/Chat-App-K8S-Full-Stack/database/init.sql:1) to the database named by `DB_NAME` in the `Makefile`, which defaults to `chatapp`.
 
 The server also performs startup migrations automatically, so `db-init` is useful but not strictly required for every run.
 

@@ -14,7 +14,7 @@ const fs = require('fs');
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'vortex-chat-secret-key-1337';
+const JWT_SECRET = process.env.SUPABASE_JWT_SECRET || process.env.JWT_SECRET || 'vortex-chat-secret-key-1337';
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 let client;
 if (GOOGLE_CLIENT_ID) {
@@ -499,37 +499,7 @@ app.get('/', (req, res) => {
 });
 
 // --- AUTH ROUTES ---
-app.post('/register', async (req, res) => {
-    const { username, password } = req.body;
-    try {
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const avatarUrl = `https://source.boringavatars.com/beam/120/${encodeURIComponent(username)}?colors=264653,2a9d8f,e9c46a,f4a261,e76f51`;
-        const result = await db.query(
-            'INSERT INTO users (username, password_hash, avatar_url) VALUES ($1, $2, $3) RETURNING id, username, preferred_theme, avatar_url',
-            [username, hashedPassword, avatarUrl]
-        );
-        res.status(201).json(result.rows[0]);
-    } catch (err) {
-        res.status(400).json({ error: 'Username already exists or invalid data' });
-    }
-});
-
-app.post('/login', async (req, res) => {
-    const { username, password } = req.body;
-    try {
-        const result = await db.query('SELECT * FROM users WHERE username = $1', [username]);
-        if (result.rows.length === 0) return res.status(401).json({ error: 'Invalid credentials' });
-        
-        const user = result.rows[0];
-        const isMatch = await bcrypt.compare(password, user.password_hash);
-        if (!isMatch) return res.status(401).json({ error: 'Invalid credentials' });
-        
-        const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '24h' });
-        res.json({ token, user: { id: user.id, username: user.username, preferred_theme: user.preferred_theme, avatar_url: user.avatar_url } });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
+// Auth is now handled exclusively by Supabase on the frontend.
 
 app.post('/auth/google', async (req, res) => {
     if (!client) {
@@ -715,6 +685,13 @@ io.use((socket, next) => {
         if (err) return next(new Error('Authentication error: Invalid token'));
         
         try {
+            if (decoded.aud === 'authenticated' && decoded.sub) {
+                decoded.id = decoded.sub;
+                decoded.username = decoded.user_metadata?.display_name || decoded.email;
+            }
+            
+            // Supabase user id is a UUID, which might fail the pg query if id is INT.
+            // Using a try-catch will gracefully fallback.
             const result = await db.query('SELECT avatar_url FROM users WHERE id = $1', [decoded.id]);
             decoded.avatar_url = result.rows[0]?.avatar_url || null;
             socket.user = decoded; // { id, username, avatar_url }
