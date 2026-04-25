@@ -187,9 +187,9 @@
             pointer-events: none;
         }
 
-        input {
+        .auth-input {
             width: 100%;
-            padding: 1.1rem 1.2rem 1.1rem 3rem;
+            padding: 1.1rem 1.2rem 1.1rem 3rem !important;
             border-radius: 1.2rem;
             background: rgba(0, 0, 0, 0.2);
             border: 1px solid rgba(255, 255, 255, 0.08);
@@ -201,18 +201,18 @@
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        input::placeholder {
+        .auth-input::placeholder {
             color: rgba(255, 255, 255, 0.2);
             font-weight: 400;
         }
 
-        input:focus {
+        .auth-input:focus {
             border-color: var(--accent-primary);
             background: rgba(99, 102, 241, 0.05);
             box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
         }
 
-        input:focus + i, input:not(:placeholder-shown) + i {
+        .auth-input:focus + i, .auth-input:not(:placeholder-shown) + i {
             color: var(--accent-primary);
         }
 
@@ -324,11 +324,11 @@
         
         <div id="login-form" class="form-section">
             <div class="input-group">
-                <input type="email" id="login-email" placeholder="Email Address" required>
+                <input type="email" id="login-email" class="auth-input" placeholder="Email Address" required>
                 <i class="fas fa-envelope"></i>
             </div>
             <div class="input-group">
-                <input type="password" id="login-password" placeholder="Master Password" required>
+                <input type="password" id="login-password" class="auth-input" placeholder="Master Password" required>
                 <i class="fas fa-lock"></i>
             </div>
             <button onclick="handleLogin()" class="btn-primary">Initialize Session</button>
@@ -337,15 +337,15 @@
 
         <div id="signup-form" class="form-section" style="display: none;">
             <div class="input-group">
-                <input type="text" id="reg-username" placeholder="Codename (Username)" required>
+                <input type="text" id="reg-username" class="auth-input" placeholder="Codename (Username)" required>
                 <i class="fas fa-user-ninja"></i>
             </div>
             <div class="input-group">
-                <input type="email" id="reg-email" placeholder="Email Address" required>
+                <input type="email" id="reg-email" class="auth-input" placeholder="Email Address" required>
                 <i class="fas fa-envelope"></i>
             </div>
             <div class="input-group">
-                <input type="password" id="reg-password" placeholder="Master Password" required>
+                <input type="password" id="reg-password" class="auth-input" placeholder="Master Password" required>
                 <i class="fas fa-lock"></i>
             </div>
             <button onclick="handleSignup()" class="btn-primary">Forge Identity</button>

@@ -20,7 +20,7 @@ const DOM = {
     navStatusText: document.getElementById('nav-status-text'),
     userAvatarMini: document.getElementById('user-avatar-mini')
 };
-let onlineUserIds = new Set();
+let onlineUsernames = new Set();
 let allUsers = [];
 let allGroups = [];
 let currentRoom = 'general';
@@ -112,14 +112,8 @@ const popSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2354/235
 popSound.volume = 0.5;
 
 // --- AUTH LOGIC ---
-function openAuthModal() { document.getElementById('auth-modal').classList.remove('hidden'); }
-function closeAuthModal() { document.getElementById('auth-modal').classList.add('hidden'); }
-function toggleAuthMode() {
-    authMode = authMode === 'login' ? 'register' : 'login';
-    document.getElementById('auth-title').innerText = authMode === 'login' ? 'Login' : 'Register';
-    document.getElementById('auth-subtitle').innerText = authMode === 'login' ? 'Ready to resume your encrypted vortex?' : 'Create a new persistent identity.';
-    document.getElementById('auth-toggle-btn').innerText = authMode === 'login' ? 'Register' : 'Login';
-    document.getElementById('auth-toggle-text').innerText = authMode === 'login' ? 'New to Vortex Chat?' : 'Already have an account?';
+function openAuthModal() { 
+    window.location.href = '/'; 
 }
 
 function updateAuthUI() {
@@ -554,8 +548,7 @@ function renderUsers() {
     if (!list) return;
     const otherUsers = allUsers.filter(u => u.username !== currentUser);
     list.innerHTML = otherUsers.map(u => {
-        const onlineData = Array.from(onlineUserIds).find(o => o.userId === u.id);
-        const isOnline = !!onlineData;
+        const isOnline = onlineUsernames.has(u.username);
         const room = getDMId(authUser ? authUser.id : 0, u.id);
 
         return `
@@ -1148,11 +1141,7 @@ socket.on('chat message', (data) => {
 
 socket.on('system-stats', (stats) => updateStatsUI(stats));
 
-socket.on('typing', (data) => {
-    if (data.user !== currentUser && data.room === currentRoom) {
-        document.getElementById('typing-indicator').style.opacity = data.isTyping ? '1' : '0';
-    }
-});
+
 
 socket.on('messageDeleted', (msgId) => {
     const el = document.getElementById('msg-' + msgId);
@@ -1252,20 +1241,35 @@ socket.on('clear chat', () => {
     updateMessageCount();
 });
 
-socket.on('online:list', (ids) => {
-    onlineUserIds = new Set(ids);
+socket.on('online:list', (list) => {
+    onlineUsernames = new Set(list.map(u => u.username));
     renderUsers();
 });
 
 socket.on('user:online', (data) => {
-    onlineUserIds.add(data.userId);
+    onlineUsernames.add(data.username);
     renderUsers();
     toast(`${data.username} is online`);
 });
 
 socket.on('user:offline', (data) => {
-    onlineUserIds.delete(data.userId);
+    onlineUsernames.delete(data.username);
     renderUsers();
+});
+
+// Typing Indicators
+socket.on('user:typing', (data) => {
+    const indicator = document.getElementById('typing-indicator');
+    const textEl = document.getElementById('typing-text');
+    if (indicator && textEl) {
+        textEl.innerText = `${data.username} is thinking...`;
+        indicator.classList.remove('hidden');
+    }
+});
+
+socket.on('user:stop_typing', (data) => {
+    const indicator = document.getElementById('typing-indicator');
+    if (indicator) indicator.classList.add('hidden');
 });
 
 socket.on('connect_error', (err) => {
@@ -1282,42 +1286,23 @@ socket.on('group:userJoined', (data) => {
 });
 
 // --- EVENT LISTENERS ---
-document.getElementById('auth-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const username = document.getElementById('auth-user').value;
-    const password = document.getElementById('auth-pass').value;
-    try {
-        const res = await fetch('/' + authMode, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
-        });
-        const data = await res.json();
-        if (res.ok) {
-            if (authMode === 'login') {
-                authToken = data.token;
-                authUser = data.user;
-                localStorage.setItem('vortex_auth_token', authToken);
-                localStorage.setItem('vortex_auth_user', JSON.stringify(authUser));
 
-                updateAuthUI();
-                connectSocket();
-                closeAuthModal();
-                toast('Welcome back, ' + authUser.username);
-                fetchAndRenderUsers();
-            } else {
-                toast('Resource created. Please login.');
-                toggleAuthMode();
-            }
-        } else {
-            toast(data.error || 'Authentication failed');
-        }
-    } catch (err) { toast('Auth service unavailable'); }
+typingTimeout = null;
+document.getElementById('input').addEventListener('input', () => {
+    if (!authToken || !currentRoom) return;
+    socket.emit('typing', currentRoom);
+    
+    clearTimeout(typingTimeout);
+    typingTimeout = setTimeout(() => {
+        socket.emit('stop_typing', currentRoom);
+    }, 2000);
 });
 
 document.getElementById('input').addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
         e.preventDefault();
+        clearTimeout(typingTimeout);
+        socket.emit('stop_typing', currentRoom);
         sendMessage();
     }
 });

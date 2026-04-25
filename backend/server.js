@@ -243,6 +243,17 @@ async function runMigrations() {
       console.log('✅ Added status columns to users table');
     }
 
+    // Add presence tracking columns
+    const presenceCheck = await db.query(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_name = 'users' AND column_name = 'presence_status'
+    `);
+    if (presenceCheck.rows.length === 0) {
+      await db.query("ALTER TABLE users ADD COLUMN presence_status TEXT DEFAULT 'Offline'");
+      await db.query("ALTER TABLE users ADD COLUMN last_seen TIMESTAMP DEFAULT NOW()");
+      console.log('✅ Added presence tracking columns to users table');
+    }
+
     // Add group_id column to messages if it doesn't exist
     const colCheck = await db.query(`
       SELECT column_name FROM information_schema.columns
@@ -703,12 +714,12 @@ io.use((socket, next) => {
     });
 });
 
-// Presence tracking (userId -> data)
+// Presence tracking (username -> data)
 const onlineUsers = new Map();
 
-// Helper to get socket by user ID
-function getSocketsByUserId(userId) {
-    const data = onlineUsers.get(userId);
+// Helper to get socket by username
+function getSocketsByUserId(username) {
+    const data = onlineUsers.get(username);
     if (!data) return [];
     return Array.from(data.sockets).map(sid => io.sockets.sockets.get(sid)).filter(s => !!s);
 }
@@ -830,9 +841,42 @@ const BOT_COMMANDS = {
         handler: async () => {
             if (onlineUsers.size === 0) return '👤 No users currently online.';
             const lines = Array.from(onlineUsers.entries())
-                .map(([id, data]) => `• **${data.username}** — IP: \`${data.ip}\` (${data.sockets.size} session${data.sockets.size > 1 ? 's' : ''})`)
+                .map(([uname, data]) => `• **${data.username}** — IP: \`${data.ip}\` (${data.sockets.size} session${data.sockets.size > 1 ? 's' : ''})`)
                 .join('\n');
             return `👥 **Online Users (${onlineUsers.size})**\n${lines}`;
+        }
+    },
+    '/vortex': {
+        description: 'Vortex-Ops Bot Interface (/vortex weather, news, system)',
+        handler: async (socket, args) => {
+            const subCmd = args[0]?.toLowerCase();
+            if (subCmd === 'weather') {
+                const location = args.slice(1).join(' ') || 'London';
+                try {
+                    const response = await fetch(`https://wttr.in/${encodeURIComponent(location)}?format=3`);
+                    const weather = await response.text();
+                    return `🌦️ **Weather report:**\n${weather}`;
+                } catch (e) {
+                    return `⚠️ Could not fetch weather.`;
+                }
+            } else if (subCmd === 'news') {
+                try {
+                    const response = await fetch('https://hacker-news.firebaseio.com/v0/topstories.json');
+                    const ids = await response.json();
+                    const top3 = await Promise.all(ids.slice(0, 3).map(id => fetch(`https://hacker-news.firebaseio.com/v0/item/${id}.json`).then(r => r.json())));
+                    const news = top3.map((item, i) => `${i + 1}. [${item.title}](${item.url || '#'})`).join('\n');
+                    return `📰 **Latest Tech Headlines:**\n${news}`;
+                } catch (e) {
+                    return `⚠️ Could not fetch news.`;
+                }
+            } else if (subCmd === 'system') {
+                const secs = Math.floor(process.uptime());
+                const h = Math.floor(secs / 3600);
+                const m = Math.floor((secs % 3600) / 60);
+                return `⚙️ **Vortex System Status**\n• Uptime: ${h}h ${m}m ${secs % 60}s\n• Version: Vortex v2.0 (Quantum Edition)\n• Node: ${process.version}`;
+            } else {
+                return '❓ Unknown Vortex-Ops command. Try: `weather [location]`, `news`, or `system`.';
+            }
         }
     },
     '/groups': {
@@ -851,7 +895,7 @@ const BOT_COMMANDS = {
     '/whoami': {
         description: 'Show your session info',
         handler: async (socket) => {
-            const userData = onlineUsers.get(socket.user.id);
+            const userData = onlineUsers.get(socket.user.username);
             return [
                 '🪪 **Your Session**',
                 `• Username: **${socket.user.username}**`,
@@ -941,17 +985,24 @@ io.on('connection', (socket) => {
     const userIp = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address;
     console.log(`✓ Client authenticated: ${username} (${socket.id}) from IP: ${userIp}`);
 
+    // Auto-upsert Supabase user into public.users
+    db.query(`
+        INSERT INTO users (username, password, presence_status) 
+        VALUES ($1, 'supabase_auth', 'Active') 
+        ON CONFLICT (username) DO UPDATE 
+        SET presence_status = 'Active'
+    `, [username]).catch(err => console.error('Failed to auto-register user:', err));
+
     // Add to online tracking
-    if (!onlineUsers.has(userId)) {
-        onlineUsers.set(userId, { sockets: new Set(), ip: userIp, username, avatar_url: socket.user.avatar_url });
-        io.emit('user:online', { userId, username, ip: userIp, avatar_url: socket.user.avatar_url });
+    if (!onlineUsers.has(username)) {
+        onlineUsers.set(username, { sockets: new Set(), ip: userIp, username, avatar_url: socket.user.avatar_url });
+        io.emit('user:online', { username, ip: userIp, avatar_url: socket.user.avatar_url });
     }
-    onlineUsers.get(userId).sockets.add(socket.id);
+    onlineUsers.get(username).sockets.add(socket.id);
 
     // Initial sync of online users for the newly connected client
-    const onlineList = Array.from(onlineUsers.entries()).map(([id, data]) => ({
-        userId: id,
-        username: data.username,
+    const onlineList = Array.from(onlineUsers.entries()).map(([uname, data]) => ({
+        username: uname,
         avatar_url: data.avatar_url,
         ip: data.ip
     }));
@@ -960,14 +1011,27 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         console.log(`✗ Client disconnected: ${username} (${socket.id})`);
         
-        const userData = onlineUsers.get(userId);
+        const userData = onlineUsers.get(username);
         if (userData) {
             userData.sockets.delete(socket.id);
             if (userData.sockets.size === 0) {
-                onlineUsers.delete(userId);
-                io.emit('user:offline', { userId, username });
+                onlineUsers.delete(username);
+                io.emit('user:offline', { username });
+                
+                // Update presence in PostgreSQL
+                db.query("UPDATE users SET presence_status = 'Offline', last_seen = NOW() WHERE username = $1", [username])
+                  .catch(err => console.error('Failed to update offline presence:', err));
             }
         }
+    });
+
+    // Typing indicators
+    socket.on('typing', (room) => {
+        socket.to(room).emit('user:typing', { username });
+    });
+
+    socket.on('stop_typing', (room) => {
+        socket.to(room).emit('user:stop_typing', { username });
     });
 
     socket.on('join room', (room) => {
