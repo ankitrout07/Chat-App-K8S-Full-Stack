@@ -634,3 +634,11 @@ body.theme-solar {
     backdrop-filter: blur(20px) saturate(180%);
     background: rgba(10, 15, 30, 0.9);
 }
+
+/* Fix for buttons being blocked by ghost layers */
+button, .btn, .btn-premium {
+    position: relative;
+    z-index: 50;
+    pointer-events: auto !important;
+    cursor: pointer;
+}

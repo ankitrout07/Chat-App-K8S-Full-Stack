@@ -30,8 +30,10 @@ app.use(helmet({
             "script-src": ["'self'", "'unsafe-inline'", "https://cdn.socket.io", "https://cdn.jsdelivr.net", "https://accounts.google.com", "https://cdn.tailwindcss.com"],
             "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdnjs.cloudflare.com"],
             "font-src": ["'self'", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com"],
-            "img-src": ["'self'", "data:", "https://source.boringavatars.com", "https://lh3.googleusercontent.com", "https://cdn-icons-png.flaticon.com"],
-            "connect-src": ["'self'", "wss:", "https://accounts.google.com"]
+            "img-src": ["'self'", "data:", "https://source.boringavatars.com", "https://lh3.googleusercontent.com", "https://cdn-icons-png.flaticon.com", "https://upload.wikimedia.org"],
+            "media-src": ["'self'", "https://assets.mixkit.co"],
+            "script-src-attr": ["'unsafe-inline'"],
+            "connect-src": ["'self'", "wss:", "https://accounts.google.com", "https://cdn.jsdelivr.net"]
         },
     },
 }));

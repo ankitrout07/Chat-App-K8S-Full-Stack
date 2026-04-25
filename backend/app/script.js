@@ -1113,24 +1113,27 @@ socket.on('group:deleted', (data) => {
 });
 
 socket.on('chat message', (data) => {
-    if (data.room !== currentRoom) return;
-    prependMessage(data, false);
-    scrollToBottom();
-});
+    const isMe = data.sender === currentUser;
+    const isCommand = data.isCommand;
 
-// 📣 NOTIFICATION SYSTEM
-if (!isMe && !isCommand) {
-    showNotification(data);
-
-    // Browser Push Notification (if tab is hidden)
-    if (window.Notification && Notification.permission === 'granted' && document.hidden) {
-        new Notification(`${data.sender}`, {
-            body: data.text,
-            icon: 'https://cdn-icons-png.flaticon.com/512/825/825590.png'
-        });
+    if (data.room === currentRoom) {
+        prependMessage(data, false);
+        scrollToBottom();
     }
-}
-;
+
+    // 📣 NOTIFICATION SYSTEM
+    if (!isMe && !isCommand) {
+        showNotification(data);
+
+        // Browser Push Notification (if tab is hidden)
+        if (window.Notification && Notification.permission === 'granted' && document.hidden) {
+            new Notification(`${data.sender}`, {
+                body: data.text,
+                icon: 'https://cdn-icons-png.flaticon.com/512/825/825590.png'
+            });
+        }
+    }
+});
 
 socket.on('system-stats', (stats) => updateStatsUI(stats));
 
