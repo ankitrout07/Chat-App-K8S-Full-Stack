@@ -7,10 +7,10 @@ on:
   workflow_dispatch:
 
 env:
-  AZURE_WEBAPP_NAME: 'chat-app-tunnel'
+  AZURE_WEBAPP_NAME: 'vortex-chat'
   AZURE_RESOURCE_GROUP: 'Dev-Test-RG'
   AZURE_LOCATION: 'centralindia'
-  AZURE_PLAN_NAME: 'chat-app-plan'
+  AZURE_PLAN_NAME: 'vortex-plan'
 
 jobs:
   build:
