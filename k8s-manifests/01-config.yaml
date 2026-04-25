@@ -17,4 +17,4 @@ metadata:
 type: Opaque
 stringData:
   POSTGRES_PASSWORD: "password"
-  JWT_SECRET: "tunnel-pro-quantum-secret-2026"
+  JWT_SECRET: "vortex-chat-quantum-secret-2026"

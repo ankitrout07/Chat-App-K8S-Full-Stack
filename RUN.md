@@ -1,6 +1,6 @@
-# 🚀 Launching TunnelPro: Quantum Chat
+# 🚀 Launching Vortex Chat: Quantum Chat
 
-TunnelPro is a high-performance, real-time messaging platform designed for cloud-native scalability. This guide will help you get the system up and running in minutes.
+Vortex Chat is a high-performance, real-time messaging platform designed for cloud-native scalability. This guide will help you get the system up and running in minutes.
 
 ---
 
@@ -42,7 +42,7 @@ make run
 
 ## ☸️ Kubernetes (AKS/Local) Deployment
 
-Deploying TunnelPro to a cluster is streamlined through the `Makefile`.
+Deploying Vortex Chat to a cluster is streamlined through the `Makefile`.
 
 1. **Deploy the Stack**:
    ```bash
@@ -54,7 +54,7 @@ Deploying TunnelPro to a cluster is streamlined through the `Makefile`.
    make k8s-status
    ```
 
-3. **Access the Tunnel**:
+3. **Access the Vortex Chat**:
    ```bash
    make k8s-proxy
    ```
@@ -78,13 +78,13 @@ Once launched, verify the following core features:
 
 ## ☁️ Production: Azure App Service (OIDC)
 
-TunnelPro is optimized for **Azure App Service (Linux)** using a secure, secret-less GitHub Actions workflow.
+Vortex Chat is optimized for **Azure App Service (Linux)** using a secure, secret-less GitHub Actions workflow.
 
 ### 1. Cloud Provisioning
 The application is validated for the **Central India** region. Ensure your App Service Plan and Web App are provisioned:
 - **Resource Group**: `Dev-Test-RG`
-- **App Service Plan**: `TunnelPlan` (Linux/B1+)
-- **Web App**: `chat-app-tunnel` (Node 20 LTS)
+- **App Service Plan**: `VortexPlan` (Linux/B1+)
+- **Web App**: `vortex-chat` (Node 20 LTS)
 
 ### 2. Secure Authentication (OIDC)
 Instead of long-lived secrets, we use **GitHub Actions OIDC**:
@@ -95,7 +95,7 @@ Instead of long-lived secrets, we use **GitHub Actions OIDC**:
    - `AZURE_SUBSCRIPTION_ID`: Your Azure Subscription ID.
 
 ### 3. Deploy
-The deployment is automated via `.github/workflows/main_chat-app-tunnel.yml`. 
+The deployment is automated via `.github/workflows/main.yml`. 
 - **Trigger**: Any push to the `main` branch.
 - **Runtime**: Automatically standardized to **Node 20 (LTS)** for production stability.
 

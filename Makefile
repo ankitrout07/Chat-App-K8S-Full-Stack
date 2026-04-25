@@ -1,4 +1,4 @@
-# TunnelPro Chat App - Operations Makefile
+# Vortex Chat App - Operations Makefile
 
 .PHONY: help install run docker-build k8s-deploy k8s-delete k8s-status k8s-logs k8s-proxy db-init
 
@@ -8,7 +8,7 @@ K8S_DIR = k8s-manifests
 DB_NAME ?= chatapp
 
 help:
-	@echo "TunnelPro Management Commands:"
+	@echo "Vortex Chat Management Commands:"
 	@echo "  install      - Install Node.js dependencies"
 	@echo "  run          - Run the application locally"
 	@echo "  db-init      - Initialize local PostgreSQL (requires psql)"
@@ -46,5 +46,5 @@ k8s-logs:
 	kubectl logs -f deployment/chat-app
 
 k8s-proxy:
-	@echo "Tunnel Live at http://localhost:3000"
+	@echo "Vortex Chat Live at http://localhost:3000"
 	kubectl port-forward svc/chat-service 3000:80

@@ -14,7 +14,7 @@ const fs = require('fs');
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'tunnel-pro-secret-key-1337';
+const JWT_SECRET = process.env.JWT_SECRET || 'vortex-chat-secret-key-1337';
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 let client;
 if (GOOGLE_CLIENT_ID) {
@@ -735,7 +735,7 @@ function getSocketsByUserId(userId) {
 // ─────────────────────────────────────────────────
 // 🤖 CHATOPS BOT ENGINE
 // ─────────────────────────────────────────────────
-const BOT_NAME = 'TunnelBot';
+const BOT_NAME = 'VortexBot';
 const BOT_COMMANDS = {
     '/help': {
         description: 'List all available bot commands',
@@ -1236,7 +1236,7 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Tunnel v14 Control Live on port ${PORT}`));
+server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Vortex v14 Control Live on port ${PORT}`));
 
 // Health check for Azure/K8s
 app.get('/health', (req, res) => res.status(200).send('OK'));

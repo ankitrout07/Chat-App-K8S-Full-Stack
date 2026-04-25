@@ -94,8 +94,8 @@ function applyTheme(name) {
 
 
 let currentUser = null;
-let authUser = JSON.parse(localStorage.getItem('tunnel_auth_user') || 'null');
-let authToken = localStorage.getItem('tunnel_auth_token') || null;
+let authUser = JSON.parse(localStorage.getItem('vortex_auth_user') || 'null');
+let authToken = localStorage.getItem('vortex_auth_token') || null;
 let typingTimeout;
 let monitoringInterval;
 let authMode = 'login';
@@ -110,9 +110,9 @@ function closeAuthModal() { document.getElementById('auth-modal').classList.add(
 function toggleAuthMode() {
     authMode = authMode === 'login' ? 'register' : 'login';
     document.getElementById('auth-title').innerText = authMode === 'login' ? 'Login' : 'Register';
-    document.getElementById('auth-subtitle').innerText = authMode === 'login' ? 'Ready to resume your encrypted tunnel?' : 'Create a new persistent identity.';
+    document.getElementById('auth-subtitle').innerText = authMode === 'login' ? 'Ready to resume your encrypted vortex?' : 'Create a new persistent identity.';
     document.getElementById('auth-toggle-btn').innerText = authMode === 'login' ? 'Register' : 'Login';
-    document.getElementById('auth-toggle-text').innerText = authMode === 'login' ? 'New to TunnelPro?' : 'Already have an account?';
+    document.getElementById('auth-toggle-text').innerText = authMode === 'login' ? 'New to Vortex Chat?' : 'Already have an account?';
 }
 
 function updateAuthUI() {
@@ -159,8 +159,8 @@ function connectSocket() {
 }
 
 function logout() {
-    localStorage.removeItem('tunnel_auth_token');
-    localStorage.removeItem('tunnel_auth_user');
+    localStorage.removeItem('vortex_auth_token');
+    localStorage.removeItem('vortex_auth_user');
     socket.disconnect();
     authUser = null; authToken = null;
     updateAuthUI();
@@ -200,8 +200,8 @@ async function handleGoogleCallback(response) {
 
         const data = await res.json();
         if (res.ok) {
-            localStorage.setItem('tunnel_auth_token', data.token);
-            localStorage.setItem('tunnel_auth_user', JSON.stringify(data.user));
+            localStorage.setItem('vortex_auth_token', data.token);
+            localStorage.setItem('vortex_auth_user', JSON.stringify(data.user));
             authUser = data.user;
             authToken = data.token;
 
@@ -456,7 +456,7 @@ function showNotification(data) {
     const toast = document.createElement('div');
     toast.className = 'quantum-toast glass p-4';
 
-    const isBot = data.isBot || data.sender === 'TunnelBot';
+    const isBot = data.isBot || data.sender === 'VortexBot';
     const borderCol = isBot ? 'var(--accent-secondary)' : 'var(--accent)';
 
     toast.innerHTML = `
@@ -813,7 +813,7 @@ function saveProfile() {
     authUser.status_text = statusText;
     authUser.status_emoji = statusEmoji;
 
-    localStorage.setItem('tunnel_auth_user', JSON.stringify(authUser));
+    localStorage.setItem('vortex_auth_user', JSON.stringify(authUser));
     updateAuthUI();
     toast('Neural profile synchronized');
     closeProfileModal();
@@ -923,7 +923,7 @@ function prependMessage(data, atTop = true) {
     if (emptyState) emptyState.style.display = 'none';
 
     const isMe = data.sender === currentUser;
-    const isBot = data.isBot || data.sender === 'TunnelBot';
+    const isBot = data.isBot || data.sender === 'VortexBot';
     const isCommand = data.isCommand;
     const msgEl = document.createElement('div');
     msgEl.id = 'msg-' + data.id;
@@ -939,7 +939,7 @@ function prependMessage(data, atTop = true) {
             <div class="avatar bot-avatar shadow-lg border border-cyan-500/30 flex items-center justify-center"><i class="fas fa-robot text-xs"></i></div>
             <div class="relative flex flex-col items-start max-w-[85%]">
                 <div class="flex items-center gap-3 mb-1 px-1">
-                    <span class="text-[10px] font-black uppercase text-cyan-400 tracking-widest">TunnelBot</span>
+                    <span class="text-[10px] font-black uppercase text-cyan-400 tracking-widest">VortexBot</span>
                     <span class="bot-badge">BOT</span>
                     <span class="text-[9px] font-bold opacity-30 text-white uppercase tracking-tighter">${data.time}</span>
                 </div>
@@ -1286,8 +1286,8 @@ document.getElementById('auth-form').addEventListener('submit', async (e) => {
             if (authMode === 'login') {
                 authToken = data.token;
                 authUser = data.user;
-                localStorage.setItem('tunnel_auth_token', authToken);
-                localStorage.setItem('tunnel_auth_user', JSON.stringify(authUser));
+                localStorage.setItem('vortex_auth_token', authToken);
+                localStorage.setItem('vortex_auth_user', JSON.stringify(authUser));
 
                 updateAuthUI();
                 connectSocket();

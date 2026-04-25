@@ -1,6 +1,6 @@
-# TunnelPro Chat App
+# Vortex Chat App
 
-TunnelPro is a full-stack real-time chat application built with Node.js, Express, Socket.IO, PostgreSQL, Redis, and Kubernetes manifests for local or cluster deployment. It includes public channels, direct messaging, file uploads, message reactions, pinned messages, full-text search, Google sign-in support, and a small ChatOps command layer inside the chat UI.
+Vortex Chat is a full-stack real-time chat application built with Node.js, Express, Socket.IO, PostgreSQL, Redis, and Kubernetes manifests for local or cluster deployment. It includes public channels, direct messaging, file uploads, message reactions, pinned messages, full-text search, Google sign-in support, and a small ChatOps command layer inside the chat UI.
 
 ## Features
 
@@ -46,7 +46,7 @@ Chat-App-K8S-Full-Stack/
 │   ├── 05-redis-statefulset.yaml
 │   └── init.sql
 ├── .github/workflows/
-│   └── main_chat-app-tunnel.yml
+│   └── main.yml
 ├── Makefile
 ├── RUN.md
 └── README.md
@@ -236,7 +236,7 @@ Then open `http://localhost:3000`.
 
 ## Azure Deployment
 
-The workflow at [.github/workflows/main_chat-app-tunnel.yml](/home/ankit/git/Chat-App-K8S-Full-Stack/.github/workflows/main_chat-app-tunnel.yml:1) builds the `backend/` app and deploys it to Azure Web App `chat-app-tunnel`.
+The workflow at [.github/workflows/main.yml](/home/ankit/git/Chat-App-K8S-Full-Stack/.github/workflows/main.yml:1) builds the `backend/` app and deploys it to Azure Web App `vortex-chat`.
 
 Current workflow behavior:
 
