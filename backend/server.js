@@ -662,7 +662,6 @@ app.get('/search', async (req, res) => {
     if (!query) return res.json([]);
     
     try {
-        // Using plainto_tsquery for easier fuzzy-ish matching or to_tsquery for advanced
         const result = await db.query(
             `SELECT m.id, m.sender, m.text, m.time, m.room, m.created_at, u.avatar_url,
              ts_rank(m.tsv, plainto_tsquery('english', $1)) as rank
@@ -692,6 +691,27 @@ app.get('/search', async (req, res) => {
         }
     }
 });
+
+// Peer Search Endpoint — search users by username prefix
+app.get('/search/users', async (req, res) => {
+    const query = req.query.q;
+    if (!query) return res.json([]);
+    try {
+        const result = await db.query(
+            `SELECT id, username, bio, status_text, status_emoji, avatar_url
+             FROM users
+             WHERE username ILIKE $1
+             ORDER BY username ASC
+             LIMIT 10`,
+            [`%${query}%`]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        // Memory fallback
+        const lower = query.toLowerCase();
+        const matched = (global._memUsers || []).filter(u => u.username.toLowerCase().includes(lower));
+        res.json(matched.slice(0, 10));
+    }
 
 app.get('/stats', (req, res) => {
     // Cleanup message history

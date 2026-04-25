@@ -21,6 +21,7 @@ const DOM = {
     userAvatarMini: document.getElementById('user-avatar-mini')
 };
 let onlineUsernames = new Set();
+let onlineUserIds = new Set();
 let allUsers = [];
 let allGroups = [];
 let currentRoom = 'general';
@@ -565,7 +566,7 @@ function renderUsers() {
     const list = document.getElementById('sidebar-users');
     if (!list) return;
 
-    const otherUsers = allUsers.filter(u => u.username !== currentUser);
+    const otherUsers = allUsers.filter(u => u?.id && u?.username && u.username !== currentUser);
     const renderedIds = new Set();
 
     otherUsers.forEach(u => {
@@ -713,47 +714,135 @@ function jumpToMessage(id) {
     }
 }
 
-// Global Search Implementation
+// ─────────────────────────────────────────────────
+// 🔍 UNIFIED VORTEX SEARCH — Aggregator Pattern
+//    @username  → Peer Search  (profiles table)
+//    plain text → Archive FTS  (messages tsvector)
+// ─────────────────────────────────────────────────
 let searchDebounce;
-async function performGlobalSearch(query, isSidebar = false) {
-    if (!query || query.length < 2) {
-        if (isSidebar) document.getElementById('search-results-overlay').classList.add('hidden');
+
+async function handleVortexSearch(query) {
+    const overlay = document.getElementById('search-results-overlay');
+    const list = document.getElementById('search-results-list');
+    if (!list || !overlay) return;
+
+    if (!query || query.length < 1) {
+        overlay.classList.add('hidden');
         return;
     }
 
-    try {
-        const res = await fetch(`/search?q=${encodeURIComponent(query)}`);
-        const results = await res.json();
-
-        if (isSidebar) renderSidebarSearchResults(results);
-    } catch (err) {
-        console.error('Search failed:', err);
+    if (query.startsWith('@')) {
+        // ── PEER SEARCH ──────────────────────────────
+        const term = query.slice(1);
+        if (term.length < 1) { overlay.classList.add('hidden'); return; }
+        try {
+            const res = await fetch(`/search/users?q=${encodeURIComponent(term)}`);
+            const users = await res.json();
+            renderUnifiedResults({ peers: users, messages: [] });
+        } catch (err) {
+            console.error('Peer search failed:', err);
+        }
+    } else {
+        // ── ARCHIVE FTS SEARCH ────────────────────────
+        if (query.length < 2) { overlay.classList.add('hidden'); return; }
+        try {
+            const res = await fetch(`/search?q=${encodeURIComponent(query)}`);
+            const messages = await res.json();
+            renderUnifiedResults({ peers: [], messages });
+        } catch (err) {
+            console.error('Archive search failed:', err);
+        }
     }
 }
 
-function renderSidebarSearchResults(results) {
+function renderUnifiedResults({ peers, messages }) {
     const overlay = document.getElementById('search-results-overlay');
     const list = document.getElementById('search-results-list');
 
-    if (results.length === 0) {
-        list.innerHTML = '<div class="text-[10px] text-white/20 italic p-4 text-center">No matching transmissions found.</div>';
-    } else {
-        list.innerHTML = results.map(r => `
-            <div class="search-result-item p-3 rounded-2xl cursor-pointer group flex gap-3 items-center" onclick="jumpToSearchResult(${r.id}, '${r.room}')">
-                <div class="w-8 h-8 rounded-lg bg-white/5 flex-shrink-0 overflow-hidden flex items-center justify-center border border-white/10 group-hover:border-indigo-500/30 transition-all">
-                    ${r.avatar_url ? `<img src="${r.avatar_url}" class="w-full h-full object-cover">` : `<span class="text-[10px] font-black">${r.sender[0].toUpperCase()}</span>`}
+    const hasPeers = peers && peers.length > 0;
+    const hasMsgs = messages && messages.length > 0;
+
+    if (!hasPeers && !hasMsgs) {
+        list.innerHTML = `
+            <div class="text-[10px] text-white/20 italic p-4 text-center flex flex-col items-center gap-2">
+                <i class="fas fa-satellite-dish opacity-30 text-lg"></i>
+                No signals found in the quantum archive.
+            </div>`;
+        overlay.classList.remove('hidden');
+        return;
+    }
+
+    let html = '';
+
+    if (hasPeers) {
+        html += `<div class="text-[8px] font-black uppercase text-cyan-400 tracking-[0.25em] mb-2 px-1">
+                    <i class="fas fa-user-astronaut mr-1"></i> Peers Found
+                 </div>`;
+        html += peers.filter(u => u?.id && u?.username).map(u => {
+            const isOnline = onlineUsernames.has(u.username);
+            const avatarBg = u.avatar_url ? '' : `background:${avatarColorHash(u.username)}`;
+            const avatarContent = u.avatar_url
+                ? `<img src="${u.avatar_url}" class="w-full h-full object-cover">`
+                : u.username[0].toUpperCase();
+            const room = authUser ? getDMId(authUser.id, u.id) : '';
+            return `
+            <div class="search-result-item flex items-center gap-3 p-3 rounded-xl cursor-pointer group
+                        border border-white/[0.03] hover:border-cyan-500/30 hover:bg-white/[0.04] transition-all"
+                 onclick="jumpToSearchResultUser('${room}'); document.getElementById('sidebar-search').value='';">
+                <div class="relative flex-shrink-0">
+                    <div class="w-9 h-9 rounded-xl flex items-center justify-center text-[11px] font-black text-white overflow-hidden border border-white/10" style="${avatarBg}">
+                        ${avatarContent}
+                    </div>
+                    ${isOnline ? '<div class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-bg-deep"></div>' : ''}
+                </div>
+                <div class="flex flex-col min-w-0">
+                    <span class="text-[10px] font-black text-white/90 uppercase tracking-widest truncate">${u.username}</span>
+                    <span class="text-[9px] text-white/30 truncate">${u.status_emoji || '🟢'} ${u.status_text || 'Available'}</span>
+                </div>
+                <div class="ml-auto text-[8px] text-cyan-500/40 group-hover:text-cyan-400 transition-colors font-black uppercase">DM →</div>
+            </div>`;
+        }).join('');
+    }
+
+    if (hasPeers && hasMsgs) {
+        html += `<div class="h-px bg-white/[0.04] my-3"></div>`;
+    }
+
+    if (hasMsgs) {
+        html += `<div class="text-[8px] font-black uppercase text-indigo-400 tracking-[0.25em] mb-2 px-1">
+                    <i class="fas fa-archive mr-1"></i> Archive Results
+                 </div>`;
+        html += messages.map(r => {
+            const avatarBg = r.avatar_url ? '' : `background:${avatarColorHash(r.sender)}`;
+            const avatarContent = r.avatar_url
+                ? `<img src="${r.avatar_url}" class="w-full h-full object-cover">`
+                : r.sender[0].toUpperCase();
+            return `
+            <div class="search-result-item flex gap-3 items-start p-3 rounded-xl cursor-pointer group
+                        border border-white/[0.03] hover:border-indigo-500/30 hover:bg-white/[0.04] transition-all"
+                 onclick="jumpToSearchResult(${r.id}, '${r.room}')">
+                <div class="w-8 h-8 rounded-lg flex-shrink-0 overflow-hidden flex items-center justify-center text-[10px] font-black text-white border border-white/10" style="${avatarBg}">
+                    ${avatarContent}
                 </div>
                 <div class="flex-grow min-w-0">
-                    <div class="flex justify-between items-center mb-1">
+                    <div class="flex justify-between items-center mb-0.5">
                         <span class="text-[9px] font-black text-indigo-400 uppercase tracking-widest">${r.sender}</span>
-                        <span class="text-[8px] text-white/10 group-hover:text-white/30 transition-colors uppercase font-bold">#${r.room}</span>
+                        <span class="text-[8px] text-white/20 group-hover:text-white/40 transition-colors font-bold uppercase">#${r.room}</span>
                     </div>
                     <p class="text-[10px] text-white/50 group-hover:text-white/80 transition-colors line-clamp-2 leading-relaxed">${r.text}</p>
                 </div>
-            </div>
-        `).join('');
+            </div>`;
+        }).join('');
     }
+
+    list.innerHTML = html;
     overlay.classList.remove('hidden');
+}
+
+function jumpToSearchResultUser(room) {
+    if (!room) return;
+    document.getElementById('search-results-overlay').classList.add('hidden');
+    joinRoom(room);
 }
 
 async function jumpToSearchResult(id, room) {
@@ -763,12 +852,12 @@ async function jumpToSearchResult(id, room) {
     if (currentRoom !== room) {
         const group = allGroups.find(g => g.name === room);
         joinRoom(room, group?.id);
-        // Wait for messages to load then jump
         setTimeout(() => jumpToMessage(id), 800);
     } else {
         jumpToMessage(id);
     }
 }
+
 
 function initCharts() {
     const ctx = document.getElementById('msgFrequencyChart');
@@ -886,6 +975,7 @@ document.addEventListener('mouseout', (e) => {
 
 function showHoverCard(trigger, userId, username) {
     const card = document.getElementById('user-hover-card');
+    if (!card) return;
     const rect = trigger.getBoundingClientRect();
 
     // Position card
@@ -893,14 +983,23 @@ function showHoverCard(trigger, userId, username) {
     card.style.top = `${rect.top - 180}px`; // Adjust based on card height
 
     // Find user data
-    const user = allUsers.find(u => u.id == userId || u.username === username);
+    console.log('Debug User Object:', allUsers.find(u => u?.id == userId || u?.username === username));
+    const user = allUsers.find(u => u?.id == userId || u?.username === username);
     const isOnline = onlineUserIds.has(parseInt(userId));
+    const isCurrentUser = username === 'You' && !!authUser;
+    const resolvedName = isCurrentUser ? authUser?.username : username;
 
-    document.getElementById('hover-username').innerText = username === 'You' ? authUser.username : username;
+    if (!resolvedName) {
+        console.warn('Attempted to render an undefined user.');
+        hideHoverCard();
+        return;
+    }
+
+    document.getElementById('hover-username').innerText = resolvedName;
 
     const avatarEl = document.getElementById('hover-avatar');
-    const avatarUrl = user?.avatar_url || (username === 'You' ? authUser.avatar_url : null);
-    const displayName = username === 'You' ? authUser.username : username;
+    const avatarUrl = user?.avatar_url || (isCurrentUser ? authUser?.avatar_url : null);
+    const displayName = resolvedName;
 
     if (avatarUrl) {
         avatarEl.innerHTML = `<img src="${avatarUrl}" class="w-full h-full rounded-2xl object-cover">`;
@@ -1288,17 +1387,26 @@ socket.on('clear chat', () => {
 
 socket.on('online:list', (list) => {
     onlineUsernames = new Set(list.map(u => u.username));
+    onlineUserIds = new Set(
+        list
+            .map(u => allUsers.find(user => user?.username === u.username)?.id)
+            .filter(Boolean)
+    );
     renderUsers();
 });
 
 socket.on('user:online', (data) => {
     onlineUsernames.add(data.username);
+    const matchedUserId = allUsers.find(user => user?.username === data.username)?.id;
+    if (matchedUserId) onlineUserIds.add(matchedUserId);
     renderUsers();
     toast(`${data.username} is online`);
 });
 
 socket.on('user:offline', (data) => {
     onlineUsernames.delete(data.username);
+    const matchedUserId = allUsers.find(user => user?.username === data.username)?.id;
+    if (matchedUserId) onlineUserIds.delete(matchedUserId);
     renderUsers();
 });
 
@@ -1374,8 +1482,8 @@ document.getElementById('search').addEventListener('input', (e) => {
 document.getElementById('sidebar-search').addEventListener('input', (e) => {
     clearTimeout(searchDebounce);
     searchDebounce = setTimeout(() => {
-        performGlobalSearch(e.target.value, true);
-    }, 400);
+        handleVortexSearch(e.target.value.trim());
+    }, 350);
 });
 
 // Close search overlay when clicking outside
@@ -1469,5 +1577,13 @@ document.addEventListener('click', (e) => {
         if (!sidebar.contains(e.target) && !e.target.closest('button[onclick="toggleSidebar()"]')) {
             sidebar.classList.remove('active');
         }
+    }
+});
+
+document.addEventListener('DOMContentLoaded', async () => {
+    if (authUser?.id) {
+        console.log('Logged in as:', authUser?.id);
+    } else {
+        console.log('No active session found.');
     }
 });
