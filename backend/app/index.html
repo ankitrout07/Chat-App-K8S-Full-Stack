@@ -324,36 +324,13 @@
         
         <div id="login-form" class="form-section">
             <div class="input-group">
-                <input type="email" id="login-email" class="auth-input" placeholder="Email Address" required>
-                <i class="fas fa-envelope"></i>
-            </div>
-            <div class="input-group">
-                <input type="password" id="login-password" class="auth-input" placeholder="Master Password" required>
-                <i class="fas fa-lock"></i>
-            </div>
-            <button onclick="handleLogin()" class="btn-primary">Initialize Session</button>
-            <p class="toggle-text">New to Vortex? <span onclick="toggleAuth()">Create Identity</span></p>
-        </div>
-
-        <div id="signup-form" class="form-section" style="display: none;">
-            <div class="input-group">
-                <input type="text" id="reg-username" class="auth-input" placeholder="Codename (Username)" required>
+                <input type="text" id="login-email" class="auth-input" placeholder="Codename (Username)" required>
                 <i class="fas fa-user-ninja"></i>
             </div>
-            <div class="input-group">
-                <input type="email" id="reg-email" class="auth-input" placeholder="Email Address" required>
-                <i class="fas fa-envelope"></i>
-            </div>
-            <div class="input-group">
-                <input type="password" id="reg-password" class="auth-input" placeholder="Master Password" required>
-                <i class="fas fa-lock"></i>
-            </div>
-            <button onclick="handleSignup()" class="btn-primary">Forge Identity</button>
-            <p class="toggle-text">Already verified? <span onclick="toggleAuth()">Establish Link</span></p>
+            <button onclick="handleLogin()" class="btn-primary">Initialize Session</button>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="auth.js"></script>
 </body>
 </html>

@@ -1,72 +1,37 @@
 // auth.js
-const supabaseUrl = 'YOUR_SUPABASE_URL';
-const supabaseKey = 'YOUR_SUPABASE_ANON_KEY';
-const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
-
-function toggleAuth() {
-    const loginForm = document.getElementById('login-form');
-    const signupForm = document.getElementById('signup-form');
-    if (loginForm.style.display === 'none') {
-        loginForm.style.display = 'block';
-        signupForm.style.display = 'none';
-    } else {
-        loginForm.style.display = 'none';
-        signupForm.style.display = 'block';
-    }
-}
-
-async function handleSignup() {
-    const email = document.getElementById('reg-email').value;
-    const password = document.getElementById('reg-password').value;
-    const username = document.getElementById('reg-username').value;
-
-    if (!email || !password || !username) {
-        alert('Please fill out all fields.');
-        return;
-    }
-
-    const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-            data: { display_name: username }
-        }
-    });
-
-    if (error) {
-        alert(error.message);
-    } else {
-        alert('Identity Created! Check your email for verification.');
-        toggleAuth();
-    }
-}
 
 async function handleLogin() {
-    const email = document.getElementById('login-email').value;
-    const password = document.getElementById('login-password').value;
+    const username = document.getElementById('login-email').value;
 
-    if (!email || !password) {
-        alert('Please enter your email and password.');
+    if (!username) {
+        alert('Please enter your username.');
         return;
     }
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-    });
-
-    if (error) {
-        alert(error.message);
-    } else {
-        // Redirect through the Express route
-        window.location.assign('/chat');
+    try {
+        const res = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username })
+        });
+        const data = await res.json();
+        
+        if (res.ok) {
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('user', JSON.stringify(data.user));
+            window.location.assign('/chat');
+        } else {
+            alert(data.error || 'Login failed');
+        }
+    } catch (err) {
+        alert('Could not connect to the server.');
     }
 }
 
 // Auto-redirect if already logged in
-(async function checkExistingSession() {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session) {
+function checkExistingSession() {
+    if (localStorage.getItem('token')) {
         window.location.assign('/chat');
     }
-})();
+}
+checkExistingSession();

@@ -514,8 +514,31 @@ app.get('/chat', (req, res) => {
     res.sendFile(path.join(staticPath, 'chat.html'));
 });
 
+app.post('/api/login', async (req, res) => {
+    const { username } = req.body;
+    if (!username) return res.status(400).json({ error: 'Username is required' });
+
+    let user;
+    try {
+        let result = await db.query('SELECT * FROM users WHERE username = $1', [username]);
+        if (result.rows.length === 0) {
+            const insertResult = await db.query(
+                'INSERT INTO users (username) VALUES ($1) RETURNING id, username, preferred_theme',
+                [username]
+            );
+            user = insertResult.rows[0];
+        } else {
+            user = result.rows[0];
+        }
+        
+        const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '24h' });
+        res.json({ token, user: { id: user.id, username: user.username, preferred_theme: user.preferred_theme } });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // --- AUTH ROUTES ---
-// Auth is now handled exclusively by Supabase on the frontend.
 
 app.post('/auth/google', async (req, res) => {
     if (!client) {
@@ -701,10 +724,8 @@ io.use((socket, next) => {
         if (err) return next(new Error('Authentication error: Invalid token'));
         
         try {
-            if (decoded.aud === 'authenticated' && decoded.sub) {
-                decoded.id = decoded.sub;
-                decoded.username = decoded.user_metadata?.display_name || decoded.email;
-            }
+            // Local token payload is { id, username }
+            // No Supabase mapping needed.
             
             // Supabase user id is a UUID, which might fail the pg query if id is INT.
             // Using a try-catch will gracefully fallback.

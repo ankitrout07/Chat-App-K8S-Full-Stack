@@ -586,35 +586,28 @@
         </div>
     </div>
     
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
-        const supabaseUrl = 'YOUR_SUPABASE_URL';
-        const supabaseKey = 'YOUR_SUPABASE_ANON_KEY';
-        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
-
-        async function checkSession() {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) {
+        function checkSession() {
+            const token = localStorage.getItem('token');
+            const userStr = localStorage.getItem('user');
+            
+            if (!token || !userStr) {
                 window.location.href = '/'; // Kick back to home if no session
-            } else {
-                // Wait for the main script to load and be ready
-                window.addEventListener('load', () => {
-                    // Override the script.js globals with Supabase session data
-                    window.authToken = session.access_token;
-                    window.authUser = {
-                        id: session.user.id,
-                        username: session.user.user_metadata?.display_name || session.user.email,
-                        email: session.user.email
-                    };
-                    
-                    if (typeof updateAuthUI === 'function') {
-                        updateAuthUI();
-                    }
-                    if (typeof connectSocket === 'function') {
-                        connectSocket();
-                    }
-                });
+                return;
             }
+            
+            window.addEventListener('load', () => {
+                const user = JSON.parse(userStr);
+                window.authToken = token;
+                window.authUser = user;
+                
+                if (typeof updateAuthUI === 'function') {
+                    updateAuthUI();
+                }
+                if (typeof connectSocket === 'function') {
+                    connectSocket();
+                }
+            });
         }
         checkSession();
     </script>
