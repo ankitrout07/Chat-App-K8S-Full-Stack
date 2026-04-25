@@ -53,21 +53,25 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // --- RATE LIMITING ---
-const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // limit each IP to 10 login requests per window
-  message: { error: 'Too many login attempts, please try again after 15 minutes' },
-  standardHeaders: true,
-  legacyHeaders: false,
+const limiter = rateLimit({
+    // windowMs: 2 * 60 * 1000 = 120,000ms (2 minutes)
+    windowMs: 2 * 60 * 1000, 
+    
+    // Adjust this to the number of requests you want to allow in that 2-min window
+    max: 50, 
+    
+    // The message the user sees when they are blocked
+    message: {
+        status: 429,
+        error: 'Too many requests',
+        message: 'Vortex is cooling down. Please try again in 2 minutes.'
+    },
+    standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+    legacyHeaders: false,  // Disable the `X-RateLimit-*` headers
 });
 
-const registerLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 5, // limit each IP to 5 registration requests per hour
-  message: { error: 'Too many accounts created from this IP, please try again later' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+// Apply to all routes
+app.use(limiter);
 
 const oneDay = 86400000;
 app.use(express.static(path.join(__dirname, 'app'), { maxAge: oneDay }));
@@ -495,7 +499,7 @@ app.get('/', (req, res) => {
 });
 
 // --- AUTH ROUTES ---
-app.post('/register', registerLimiter, async (req, res) => {
+app.post('/register', async (req, res) => {
     const { username, password } = req.body;
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
@@ -510,7 +514,7 @@ app.post('/register', registerLimiter, async (req, res) => {
     }
 });
 
-app.post('/login', loginLimiter, async (req, res) => {
+app.post('/login', async (req, res) => {
     const { username, password } = req.body;
     try {
         const result = await db.query('SELECT * FROM users WHERE username = $1', [username]);
