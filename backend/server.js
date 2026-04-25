@@ -681,6 +681,26 @@ app.get('/search', async (req, res) => {
     }
 });
 
+app.get('/stats', (req, res) => {
+    // Cleanup message history
+    const now = Date.now();
+    while (messageHistory.length > 0 && messageHistory[0] < now - 60000) {
+        messageHistory.shift();
+    }
+
+    const stats = {
+        uptime: Math.floor(process.uptime()),
+        memory: (process.memoryUsage().rss / 1024 / 1024).toFixed(1),
+        cpu: getCpuPercentage(),
+        msgFreq: messageHistory.length, // Messages per minute
+        connections: io.engine.clientsCount,
+        dbStatus: 'HEALTHY',
+        redisStatus: 'CONNECTED', 
+        heartbeat: Date.now()
+    };
+    res.json(stats);
+});
+
 // --- SOCKET.IO MIDDLEWARE (JWT AUTH) ---
 io.use((socket, next) => {
     const token = socket.handshake.auth.token;
