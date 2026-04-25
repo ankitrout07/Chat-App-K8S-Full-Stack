@@ -1,0 +1,7 @@
+{
+  "name": "chat-app-k8s-full-stack",
+  "private": true,
+  "scripts": {
+    "start": "node backend/server.js"
+  }
+}

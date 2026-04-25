@@ -41,6 +41,7 @@ app.use(helmet({
 const compression = require('compression');
 app.use(compression());
 app.use(express.json());
+const staticPath = path.join(__dirname, 'app');
 
 // --- TRANSPORT SECURITY (HTTPS REDIRECT) ---
 if (process.env.NODE_ENV === 'production') {
@@ -74,10 +75,10 @@ const limiter = rateLimit({
 app.use(limiter);
 
 const oneDay = 86400000;
-app.use(express.static(path.join(__dirname, 'app'), { maxAge: oneDay }));
-app.use('/uploads', express.static(path.join(__dirname, 'app', 'uploads')));
+app.use(express.static(staticPath, { maxAge: oneDay }));
+app.use('/uploads', express.static(path.join(staticPath, 'uploads')));
 
-const UPLOADS_DIR = path.join(__dirname, 'app', 'uploads');
+const UPLOADS_DIR = path.join(staticPath, 'uploads');
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 const storage = multer.diskStorage({
@@ -506,7 +507,11 @@ async function initializeRedis() {
 }
 
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'app', 'index.html'));
+    res.sendFile(path.join(staticPath, 'index.html'));
+});
+
+app.get('/chat', (req, res) => {
+    res.sendFile(path.join(staticPath, 'chat.html'));
 });
 
 // --- AUTH ROUTES ---

@@ -58,8 +58,8 @@ async function handleLogin() {
     if (error) {
         alert(error.message);
     } else {
-        // Redirect to the Chat dashboard
-        window.location.href = '/chat.html';
+        // Redirect through the Express route
+        window.location.assign('/chat');
     }
 }
 
@@ -67,6 +67,6 @@ async function handleLogin() {
 (async function checkExistingSession() {
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
-        window.location.href = '/chat.html';
+        window.location.assign('/chat');
     }
 })();
