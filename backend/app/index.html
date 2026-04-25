@@ -6,6 +6,7 @@
     <title>Vortex Chat | High-Velocity Comms</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="style.css?v=2">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -16,7 +17,7 @@
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
     <!-- Sidebar Navigation -->
-    <aside class="sidebar hidden md:flex">
+    <aside id="main-sidebar" class="sidebar flex flex-col md:flex">
         <div class="h-24 flex items-center px-8 gap-4 border-b border-white/[0.03]">
             <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-2xl relative overflow-hidden group" style="background: var(--accent)">
                 <div class="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
@@ -87,6 +88,7 @@
     <div class="flex-grow flex flex-col h-full overflow-hidden relative">
         <nav class="glass h-16 flex items-center justify-between px-6 border-b md:hidden">
             <div class="flex items-center gap-3">
+                <button onclick="toggleSidebar()" class="text-white hover:text-indigo-400 mr-2 transition-colors"><i class="fas fa-bars text-lg"></i></button>
                 <i class="fas fa-bolt text-indigo-400"></i>
                 <span class="font-black text-lg uppercase tracking-tighter">VortexChat</span>
             </div>

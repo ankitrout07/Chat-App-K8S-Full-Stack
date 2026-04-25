@@ -1,4 +1,11 @@
-const socket = io({ autoConnect: false });
+const socket = io({
+    autoConnect: false,
+    reconnection: true,
+    reconnectionAttempts: 10,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+    timeout: 20000
+});
 
 // Cache common DOM elements for performance
 const DOM = {
@@ -1413,3 +1420,20 @@ function initLogoutDropdown() {
         window.location.reload();
     });
 }
+
+function toggleSidebar() {
+    const sidebar = document.getElementById('main-sidebar');
+    if (sidebar) {
+        sidebar.classList.toggle('active');
+    }
+}
+
+// Close sidebar on mobile when clicking outside
+document.addEventListener('click', (e) => {
+    const sidebar = document.getElementById('main-sidebar');
+    if (window.innerWidth <= 768 && sidebar && sidebar.classList.contains('active')) {
+        if (!sidebar.contains(e.target) && !e.target.closest('button[onclick="toggleSidebar()"]')) {
+            sidebar.classList.remove('active');
+        }
+    }
+});
