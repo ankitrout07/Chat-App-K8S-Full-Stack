@@ -7,142 +7,349 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="style.css?v=2">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
+        :root {
+            --bg-deep: #030712;
+            --accent-primary: #6366f1;
+            --accent-secondary: #06b6d4;
+            --glass-bg: rgba(255, 255, 255, 0.02);
+            --glass-border: rgba(255, 255, 255, 0.05);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
         body {
             display: flex;
             align-items: center;
             justify-content: center;
             min-height: 100vh;
-            background: #030712;
-            color: white;
+            background: var(--bg-deep);
+            color: var(--text-main);
             font-family: 'Inter', sans-serif;
-            margin: 0;
             position: relative;
             overflow: hidden;
+            perspective: 1000px;
         }
+
+        /* Dynamic Grid Background */
+        .cyber-grid {
+            position: absolute;
+            inset: -50%;
+            background-image: 
+                linear-gradient(rgba(99, 102, 241, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(99, 102, 241, 0.05) 1px, transparent 1px);
+            background-size: 40px 40px;
+            transform: rotateX(60deg) translateY(-100px) translateZ(-200px);
+            animation: gridMove 20s linear infinite;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        @keyframes gridMove {
+            0% { transform: rotateX(60deg) translateY(0) translateZ(-200px); }
+            100% { transform: rotateX(60deg) translateY(40px) translateZ(-200px); }
+        }
+
+        /* Ambient Orbs */
         .bg-accents {
             position: absolute;
             inset: 0;
-            z-index: 0;
+            z-index: 1;
             pointer-events: none;
         }
         .bg-accents::before, .bg-accents::after {
             content: '';
             position: absolute;
             border-radius: 50%;
-            filter: blur(100px);
+            filter: blur(120px);
             opacity: 0.15;
-            animation: pulse 10s infinite alternate;
+            animation: float 15s infinite alternate ease-in-out;
         }
         .bg-accents::before {
-            width: 500px;
-            height: 500px;
-            background: #6366f1;
-            top: -100px;
-            left: -100px;
+            width: 600px;
+            height: 600px;
+            background: var(--accent-primary);
+            top: -200px;
+            left: -150px;
         }
         .bg-accents::after {
-            width: 400px;
-            height: 400px;
-            background: #06b6d4;
-            bottom: -50px;
-            right: -50px;
+            width: 500px;
+            height: 500px;
+            background: var(--accent-secondary);
+            bottom: -150px;
+            right: -100px;
+            animation-delay: -5s;
         }
-        @keyframes pulse {
-            0% { transform: scale(1); opacity: 0.1; }
-            100% { transform: scale(1.2); opacity: 0.2; }
+
+        @keyframes float {
+            0% { transform: translate(0, 0) scale(1); opacity: 0.1; }
+            50% { transform: translate(50px, 30px) scale(1.1); opacity: 0.2; }
+            100% { transform: translate(-30px, 60px) scale(0.9); opacity: 0.15; }
         }
+
         #auth-container {
             position: relative;
             z-index: 10;
             width: 100%;
-            max-width: 400px;
-            padding: 2.5rem;
-            border-radius: 2rem;
-            background: rgba(255, 255, 255, 0.02);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            max-width: 420px;
+            padding: 3rem 2.5rem;
+            border-radius: 2.5rem;
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid var(--glass-border);
+            box-shadow: 
+                0 30px 60px -12px rgba(0, 0, 0, 0.8),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            transform: translateY(0);
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            animation: formEntrance 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
+
+        #auth-container:hover {
+            transform: translateY(-5px);
+            border-color: rgba(99, 102, 241, 0.3);
+            box-shadow: 
+                0 40px 80px -12px rgba(0, 0, 0, 0.9),
+                0 0 40px rgba(99, 102, 241, 0.1),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        }
+
+        @keyframes formEntrance {
+            from { opacity: 0; transform: translateY(40px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: rgba(99, 102, 241, 0.1);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 2rem;
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            color: var(--accent-primary);
+            margin-bottom: 2rem;
+            margin-left: auto;
+            margin-right: auto;
+            width: max-content;
+        }
+        .badge i { font-size: 0.8rem; }
+
         .brand-logo {
             text-align: center;
             font-family: 'Outfit', sans-serif;
-            font-size: 2.5rem;
+            font-size: 2.8rem;
             font-weight: 800;
             letter-spacing: -0.05em;
-            margin-bottom: 2rem;
+            margin-bottom: 0.5rem;
+            line-height: 1;
         }
         .brand-logo span {
-            color: #818cf8;
+            background: linear-gradient(to right, var(--accent-primary), var(--accent-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
+
+        .subtitle {
+            text-align: center;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 2.5rem;
+            font-weight: 500;
+            letter-spacing: 0.02em;
+        }
+
+        .input-group {
+            position: relative;
+            margin-bottom: 1.25rem;
+        }
+
+        .input-group i {
+            position: absolute;
+            left: 1.2rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            transition: color 0.3s;
+            pointer-events: none;
+        }
+
         input {
             width: 100%;
-            padding: 1rem 1.5rem;
-            margin-bottom: 1rem;
-            border-radius: 1rem;
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: white;
+            padding: 1.1rem 1.2rem 1.1rem 3rem;
+            border-radius: 1.2rem;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: var(--text-main);
+            font-size: 0.9rem;
+            font-family: 'Inter', sans-serif;
+            font-weight: 500;
             outline: none;
-            transition: all 0.3s;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
+
+        input::placeholder {
+            color: rgba(255, 255, 255, 0.2);
+            font-weight: 400;
+        }
+
         input:focus {
-            border-color: #818cf8;
-            background: rgba(255, 255, 255, 0.05);
+            border-color: var(--accent-primary);
+            background: rgba(99, 102, 241, 0.05);
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
         }
+
+        input:focus + i, input:not(:placeholder-shown) + i {
+            color: var(--accent-primary);
+        }
+
         .btn-primary {
             width: 100%;
-            padding: 1rem;
-            border-radius: 1rem;
-            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            padding: 1.2rem;
+            border-radius: 1.2rem;
+            background: linear-gradient(135deg, var(--accent-primary) 0%, #8b5cf6 100%);
             color: white;
-            font-weight: 800;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.1em;
+            letter-spacing: 0.15em;
             border: none;
             cursor: pointer;
-            transition: all 0.3s;
-            margin-top: 0.5rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            margin-top: 1rem;
+            position: relative;
+            overflow: hidden;
         }
+
+        .btn-primary::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: all 0.5s ease;
+        }
+
         .btn-primary:hover {
             transform: translateY(-2px);
-            box-shadow: 0 10px 20px -10px rgba(99, 102, 241, 0.5);
+            box-shadow: 0 15px 25px -10px rgba(99, 102, 241, 0.6);
         }
-        p {
+
+        .btn-primary:hover::before {
+            left: 100%;
+        }
+
+        .btn-primary:active {
+            transform: translateY(1px);
+        }
+
+        .toggle-text {
             text-align: center;
-            margin-top: 1.5rem;
-            font-size: 0.8rem;
-            color: rgba(255, 255, 255, 0.5);
+            margin-top: 2rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: 500;
         }
-        p span {
-            color: #818cf8;
-            font-weight: bold;
+
+        .toggle-text span {
+            color: var(--accent-secondary);
+            font-weight: 700;
             cursor: pointer;
+            transition: color 0.3s;
+            position: relative;
+            padding-bottom: 2px;
         }
-        p span:hover {
-            text-decoration: underline;
+
+        .toggle-text span::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background: var(--accent-secondary);
+            transform: scaleX(0);
+            transform-origin: right;
+            transition: transform 0.3s ease;
+        }
+
+        .toggle-text span:hover {
+            color: #22d3ee;
+        }
+
+        .toggle-text span:hover::after {
+            transform: scaleX(1);
+            transform-origin: left;
+        }
+
+        /* Form transitions */
+        .form-section {
+            animation: fadeIn 0.4s ease forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
     </style>
 </head>
 <body>
+    <div class="cyber-grid"></div>
     <div class="bg-accents"></div>
-    <div id="auth-container" class="glass-panel">
-        <h1 class="brand-logo">VORTEX<span>CHAT</span></h1>
+    
+    <div id="auth-container">
+        <div style="text-align: center;">
+            <div class="badge">
+                <i class="fas fa-shield-halved"></i> Quantum Gatekeeper
+            </div>
+            <h1 class="brand-logo">VORTEX<span>CHAT</span></h1>
+            <p class="subtitle">Secure End-to-End Encrypted Comms</p>
+        </div>
         
-        <div id="login-form">
-            <input type="email" id="login-email" placeholder="Email" required>
-            <input type="password" id="login-password" placeholder="Password" required>
+        <div id="login-form" class="form-section">
+            <div class="input-group">
+                <input type="email" id="login-email" placeholder="Email Address" required>
+                <i class="fas fa-envelope"></i>
+            </div>
+            <div class="input-group">
+                <input type="password" id="login-password" placeholder="Master Password" required>
+                <i class="fas fa-lock"></i>
+            </div>
             <button onclick="handleLogin()" class="btn-primary">Initialize Session</button>
-            <p>New to Vortex? <span onclick="toggleAuth()">Register</span></p>
+            <p class="toggle-text">New to Vortex? <span onclick="toggleAuth()">Create Identity</span></p>
         </div>
 
-        <div id="signup-form" style="display: none;">
-            <input type="text" id="reg-username" placeholder="Username" required>
-            <input type="email" id="reg-email" placeholder="Email" required>
-            <input type="password" id="reg-password" placeholder="Password" required>
-            <button onclick="handleSignup()" class="btn-primary">Create Identity</button>
-            <p>Already have a session? <span onclick="toggleAuth()">Login</span></p>
+        <div id="signup-form" class="form-section" style="display: none;">
+            <div class="input-group">
+                <input type="text" id="reg-username" placeholder="Codename (Username)" required>
+                <i class="fas fa-user-ninja"></i>
+            </div>
+            <div class="input-group">
+                <input type="email" id="reg-email" placeholder="Email Address" required>
+                <i class="fas fa-envelope"></i>
+            </div>
+            <div class="input-group">
+                <input type="password" id="reg-password" placeholder="Master Password" required>
+                <i class="fas fa-lock"></i>
+            </div>
+            <button onclick="handleSignup()" class="btn-primary">Forge Identity</button>
+            <p class="toggle-text">Already verified? <span onclick="toggleAuth()">Establish Link</span></p>
         </div>
     </div>
 

@@ -594,10 +594,19 @@
             } else {
                 // Wait for the main script to load and be ready
                 window.addEventListener('load', () => {
+                    // Override the script.js globals with Supabase session data
+                    window.authToken = session.access_token;
+                    window.authUser = {
+                        id: session.user.id,
+                        username: session.user.user_metadata?.display_name || session.user.email,
+                        email: session.user.email
+                    };
+                    
                     if (typeof updateAuthUI === 'function') {
-                        window.vortex_auth_token = session.access_token;
-                        window.vortex_auth_user = session.user.user_metadata?.display_name || session.user.email;
-                        updateAuthUI(window.vortex_auth_user);
+                        updateAuthUI();
+                    }
+                    if (typeof connectSocket === 'function') {
+                        connectSocket();
                     }
                 });
             }

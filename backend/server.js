@@ -33,7 +33,7 @@ app.use(helmet({
             "img-src": ["'self'", "data:", "https://source.boringavatars.com", "https://lh3.googleusercontent.com", "https://cdn-icons-png.flaticon.com", "https://upload.wikimedia.org"],
             "media-src": ["'self'", "https://assets.mixkit.co"],
             "script-src-attr": ["'unsafe-inline'"],
-            "connect-src": ["'self'", "wss:", "https://accounts.google.com", "https://cdn.jsdelivr.net"],
+            "connect-src": ["'self'", "wss:", "https://accounts.google.com", "https://cdn.jsdelivr.net", "https://*.supabase.co"],
             "frame-src": ["'self'", "https://accounts.google.com"]
         },
     },
