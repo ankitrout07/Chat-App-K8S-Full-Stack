@@ -543,19 +543,58 @@ async function fetchAndRenderUsers() {
     } catch (e) { console.error('Error fetching users', e); }
 }
 
+/**
+ * Deterministic color hash for user avatars.
+ * Returns a stable HSL background color based on the username string.
+ */
+function avatarColorHash(username) {
+    let hash = 0;
+    for (let i = 0; i < username.length; i++) {
+        hash = username.charCodeAt(i) + ((hash << 5) - hash);
+        hash |= 0; // Convert to 32bit int
+    }
+    const hue = Math.abs(hash) % 360;
+    return `hsl(${hue}, 60%, 45%)`;
+}
+
+/**
+ * Render sidebar user list using ID-based upsert to prevent duplicates.
+ * Only creates a DOM element if it doesn't already exist; always updates content.
+ */
 function renderUsers() {
     const list = document.getElementById('sidebar-users');
     if (!list) return;
+
     const otherUsers = allUsers.filter(u => u.username !== currentUser);
-    list.innerHTML = otherUsers.map(u => {
+    const renderedIds = new Set();
+
+    otherUsers.forEach(u => {
         const isOnline = onlineUsernames.has(u.username);
         const room = getDMId(authUser ? authUser.id : 0, u.id);
+        const elemId = `sidebar-user-${u.id}`;
+        renderedIds.add(elemId);
 
-        return `
-        <div class="sidebar-item group" data-room="${room}" data-user-id="${u.id}" onclick="joinRoom('${room}')">
+        // Upsert: find existing element or create a new one
+        let el = document.getElementById(elemId);
+        if (!el) {
+            el = document.createElement('div');
+            el.id = elemId;
+            list.appendChild(el);
+        }
+
+        const avatarBg = u.avatar_url ? '' : `background:${avatarColorHash(u.username)}`;
+        const avatarContent = u.avatar_url
+            ? `<img src="${u.avatar_url}" class="w-full h-full object-cover">`
+            : u.username[0].toUpperCase();
+
+        el.className = 'sidebar-item group';
+        el.setAttribute('data-room', room);
+        el.setAttribute('data-user-id', u.id);
+        el.onclick = () => joinRoom(room);
+        el.innerHTML = `
             <div class="relative">
-                <div class="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-[10px] font-black border border-white/5 group-hover:border-indigo-500/30 transition-all overflow-hidden">
-                    ${u.avatar_url ? `<img src="${u.avatar_url}" class="w-full h-full object-cover">` : u.username[0].toUpperCase()}
+                <div class="w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black border border-white/5 group-hover:border-indigo-500/30 transition-all overflow-hidden" style="${avatarBg}">
+                    ${avatarContent}
                 </div>
                 ${isOnline ? '<div class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-bg-deep shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>' : ''}
             </div>
@@ -565,9 +604,13 @@ function renderUsers() {
                     <span class="text-[9px] opacity-60">${u.status_emoji || '🟢'}</span>
                 </div>
                 <span class="text-[8px] text-muted truncate opacity-40">${u.status_text || 'Available'}</span>
-            </div>
-        </div>`;
-    }).join('');
+            </div>`;
+    });
+
+    // Remove stale elements for users no longer in the list
+    list.querySelectorAll('[id^="sidebar-user-"]').forEach(el => {
+        if (!renderedIds.has(el.id)) el.remove();
+    });
 }
 
 function getDMId(id1, id2) {
@@ -857,12 +900,14 @@ function showHoverCard(trigger, userId, username) {
 
     const avatarEl = document.getElementById('hover-avatar');
     const avatarUrl = user?.avatar_url || (username === 'You' ? authUser.avatar_url : null);
+    const displayName = username === 'You' ? authUser.username : username;
 
     if (avatarUrl) {
         avatarEl.innerHTML = `<img src="${avatarUrl}" class="w-full h-full rounded-2xl object-cover">`;
+        avatarEl.style.background = '';
     } else {
-        avatarEl.innerText = (username === 'You' ? authUser.username : username)[0].toUpperCase();
-        avatarEl.style.background = 'var(--accent)';
+        avatarEl.innerText = displayName[0].toUpperCase();
+        avatarEl.style.background = avatarColorHash(displayName);
     }
 
     document.getElementById('hover-bio').innerText = user?.bio || 'Neural interface active...';

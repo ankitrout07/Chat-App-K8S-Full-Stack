@@ -516,21 +516,19 @@ app.get('/chat', (req, res) => {
 
 app.post('/api/login', async (req, res) => {
     const { username } = req.body;
-    if (!username) return res.status(400).json({ error: 'Username is required' });
+    if (!username || !username.trim()) return res.status(400).json({ error: 'Username is required' });
 
-    let user;
+    const cleanUsername = username.trim();
     try {
-        let result = await db.query('SELECT * FROM users WHERE username = $1', [username]);
-        if (result.rows.length === 0) {
-            const insertResult = await db.query(
-                'INSERT INTO users (username) VALUES ($1) RETURNING id, username, preferred_theme',
-                [username]
-            );
-            user = insertResult.rows[0];
-        } else {
-            user = result.rows[0];
-        }
-        
+        // Upsert: insert the user only if they don't exist already (UNIQUE constraint on username)
+        await db.query(
+            'INSERT INTO users (username) VALUES ($1) ON CONFLICT (username) DO NOTHING',
+            [cleanUsername]
+        );
+        // Always fetch the canonical row
+        const result = await db.query('SELECT id, username, preferred_theme FROM users WHERE username = $1', [cleanUsername]);
+        const user = result.rows[0];
+
         const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '24h' });
         res.json({ token, user: { id: user.id, username: user.username, preferred_theme: user.preferred_theme } });
     } catch (err) {
