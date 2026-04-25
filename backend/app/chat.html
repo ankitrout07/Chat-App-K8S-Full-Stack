@@ -588,8 +588,8 @@
     
     <script>
         function checkSession() {
-            const token = localStorage.getItem('token');
-            const userStr = localStorage.getItem('user');
+            const token = localStorage.getItem('vortex_auth_token');
+            const userStr = localStorage.getItem('vortex_auth_user');
             
             if (!token || !userStr) {
                 window.location.href = '/'; // Kick back to home if no session
@@ -612,6 +612,6 @@
         checkSession();
     </script>
     <script src="/socket.io/socket.io.js"></script>
-    <script src="script.js?v=2"></script>
+    <script src="script.js?v=3"></script>
 </body>
 </html>

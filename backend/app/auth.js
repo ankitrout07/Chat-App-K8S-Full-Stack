@@ -17,8 +17,8 @@ async function handleLogin() {
         const data = await res.json();
         
         if (res.ok) {
-            localStorage.setItem('token', data.token);
-            localStorage.setItem('user', JSON.stringify(data.user));
+            localStorage.setItem('vortex_auth_token', data.token);
+            localStorage.setItem('vortex_auth_user', JSON.stringify(data.user));
             window.location.assign('/chat');
         } else {
             alert(data.error || 'Login failed');
@@ -30,7 +30,7 @@ async function handleLogin() {
 
 // Auto-redirect if already logged in
 function checkExistingSession() {
-    if (localStorage.getItem('token')) {
+    if (localStorage.getItem('vortex_auth_token')) {
         window.location.assign('/chat');
     }
 }
