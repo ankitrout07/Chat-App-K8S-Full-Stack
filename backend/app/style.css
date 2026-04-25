@@ -635,10 +635,48 @@ body.theme-solar {
     background: rgba(10, 15, 30, 0.9);
 }
 
-/* Fix for buttons being blocked by ghost layers */
 button, .btn, .btn-premium {
     position: relative;
     z-index: 50;
     pointer-events: auto !important;
     cursor: pointer;
+}
+
+/* Quantum Dropdown Styles */
+.avatar-container {
+    position: relative;
+    cursor: pointer;
+}
+
+.logout-dropdown {
+    position: absolute;
+    bottom: 85px; /* Positions it above the sidebar bottom */
+    left: 10px;
+    right: 10px;
+    background: rgba(10, 15, 30, 0.85);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 16px;
+    border-radius: 16px;
+    display: none; /* Hidden by default */
+    z-index: 1000;
+}
+
+.logout-dropdown.active {
+    display: block;
+    animation: fadeIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.logout-btn {
+    color: #ff4d4d; /* Danger red */
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.2s ease;
+}
+
+.logout-btn:hover {
+    color: #ff7676;
+    transform: translateX(4px);
 }

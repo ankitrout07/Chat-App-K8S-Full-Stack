@@ -1388,4 +1388,28 @@ fetchAndRenderUsers();
 showView('home');
 requestNotifyPermission();
 initGoogleAuth();
+initLogoutDropdown();
 
+function initLogoutDropdown() {
+    const avatar = document.getElementById('user-avatar-trigger');
+    const dropdown = document.getElementById('logout-menu');
+    const logoutBtn = document.getElementById('btn-logout');
+
+    if (!avatar || !dropdown || !logoutBtn) return;
+
+    avatar.addEventListener('click', (e) => {
+        e.stopPropagation();
+        dropdown.classList.toggle('active');
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!avatar.contains(e.target) && !dropdown.contains(e.target)) {
+            dropdown.classList.remove('active');
+        }
+    });
+
+    logoutBtn.addEventListener('click', () => {
+        logout();
+        window.location.reload();
+    });
+}

@@ -63,8 +63,8 @@
         </div>
 
         <div class="p-6 border-t border-white/[0.03] bg-white/[0.01]">
-            <div id="auth-nav" class="hidden flex items-center justify-between gap-3 p-4 rounded-2xl glass border border-white/[0.05]">
-                <div class="flex items-center gap-3 cursor-pointer group" onclick="openProfileModal()">
+            <div id="auth-nav" class="hidden flex items-center justify-between gap-3 p-4 rounded-2xl glass border border-white/[0.05] avatar-container relative">
+                <div id="user-avatar-trigger" class="flex items-center gap-3 cursor-pointer group w-full">
                     <div id="user-avatar-mini" class="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white text-sm shadow-inner group-hover:scale-105 transition-all" style="background:var(--accent)">?</div>
                     <div class="flex flex-col overflow-hidden">
                         <div class="flex items-center gap-2">
@@ -74,7 +74,11 @@
                         <span id="nav-status-text" class="text-[9px] font-bold text-white/40 truncate uppercase tracking-wider">Available</span>
                     </div>
                 </div>
-                <button onclick="logout()" class="text-white/20 hover:text-red-400 transition-colors p-2"><i class="fas fa-power-off"></i></button>
+                
+                <div id="logout-menu" class="logout-dropdown shadow-2xl">
+                    <button onclick="openProfileModal()" class="w-full text-left text-xs font-bold text-white/80 hover:text-white mb-3 pb-3 border-b border-white/10 transition-colors"><i class="fas fa-user-astronaut mr-2" style="color:var(--accent)"></i> Neural Profile</button>
+                    <button id="btn-logout" class="logout-btn w-full text-left text-xs flex items-center"><i class="fas fa-power-off mr-2"></i> Disconnect Session</button>
+                </div>
             </div>
             <button id="login-btn" onclick="openAuthModal()" class="w-full btn-premium py-3 rounded-xl text-xs font-black uppercase tracking-widest">Identify</button>
         </div>
