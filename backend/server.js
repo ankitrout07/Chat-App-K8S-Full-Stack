@@ -712,6 +712,7 @@ app.get('/search/users', async (req, res) => {
         const matched = (global._memUsers || []).filter(u => u.username.toLowerCase().includes(lower));
         res.json(matched.slice(0, 10));
     }
+});
 
 app.get('/stats', (req, res) => {
     // Cleanup message history
