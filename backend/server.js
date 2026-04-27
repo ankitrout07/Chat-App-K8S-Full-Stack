@@ -404,6 +404,11 @@ function setupMemoryFallback() {
         const user = memoryStore.users.find(u => u.username === params[0]);
         return { rows: user ? [user] : [] };
       }
+      // Covers both: SELECT id, username FROM users  AND  SELECT id, username, preferred_theme FROM users WHERE username = $1
+      if (text.includes('SELECT id, username') && text.includes('FROM users') && params && params[0]) {
+        const user = memoryStore.users.find(u => u.username === params[0]);
+        return { rows: user ? [user] : [] };
+      }
       if (text.includes('SELECT id, username FROM users')) {
         return { rows: memoryStore.users };
       }
@@ -528,6 +533,11 @@ app.post('/api/login', async (req, res) => {
         // Always fetch the canonical row
         const result = await db.query('SELECT id, username, preferred_theme FROM users WHERE username = $1', [cleanUsername]);
         const user = result.rows[0];
+
+        // Guard: user must exist after upsert
+        if (!user) {
+            return res.status(500).json({ error: 'Failed to create or retrieve user. Please try again.' });
+        }
 
         const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '24h' });
         res.json({ token, user: { id: user.id, username: user.username, preferred_theme: user.preferred_theme } });
@@ -1030,10 +1040,10 @@ io.on('connection', (socket) => {
     const userIp = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address;
     console.log(`✓ Client authenticated: ${username} (${socket.id}) from IP: ${userIp}`);
 
-    // Auto-upsert Supabase user into public.users
+    // Auto-upsert user presence on connect (non-fatal)
     db.query(`
-        INSERT INTO users (username, password, presence_status) 
-        VALUES ($1, 'supabase_auth', 'Active') 
+        INSERT INTO users (username, presence_status) 
+        VALUES ($1, 'Active') 
         ON CONFLICT (username) DO UPDATE 
         SET presence_status = 'Active'
     `, [username]).catch(err => console.error('Failed to auto-register user:', err));

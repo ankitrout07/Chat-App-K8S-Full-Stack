@@ -63,10 +63,12 @@ jobs:
           # Create Resource Group if it doesn't exist
           az group create --name ${{ env.AZURE_RESOURCE_GROUP }} --location ${{ env.AZURE_LOCATION }}
           
-          # Create App Service Plan if it doesn't exist
+          # Create or Update App Service Plan to B1 (Basic)
+          echo "Ensuring App Service Plan is B1..."
           if ! az appservice plan show --name ${{ env.AZURE_PLAN_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} > /dev/null 2>&1; then
-            echo "Creating App Service Plan..."
             az appservice plan create --name ${{ env.AZURE_PLAN_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --sku B1 --is-linux
+          else
+            az appservice plan update --name ${{ env.AZURE_PLAN_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --sku B1
           fi
           
           # Create Web App if it doesn't exist
