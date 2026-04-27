@@ -66,7 +66,7 @@ jobs:
           # Create App Service Plan if it doesn't exist
           if ! az appservice plan show --name ${{ env.AZURE_PLAN_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} > /dev/null 2>&1; then
             echo "Creating App Service Plan..."
-            az appservice plan create --name ${{ env.AZURE_PLAN_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --sku F1 --is-linux
+            az appservice plan create --name ${{ env.AZURE_PLAN_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --sku B1 --is-linux
           fi
           
           # Create Web App if it doesn't exist
@@ -81,8 +81,27 @@ jobs:
           # Set Startup File
           az webapp config set --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --startup-file "node server.js"
 
+          # Enable Always On (requires B1+) — prevents auto-stop
+          az webapp config set --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --always-on true
+
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          package: . 
+          package: .
+
+      - name: 'Ensure App is Started'
+        run: |
+          az webapp start --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }}
+          echo "✅ App started successfully"
+
+      - name: 'Smoke Test'
+        run: |
+          sleep 30
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net)
+          echo "HTTP Status: $STATUS"
+          if [ "$STATUS" != "200" ] && [ "$STATUS" != "302" ]; then
+            echo "❌ Smoke test failed with status $STATUS"
+            exit 1
+          fi
+          echo "✅ Smoke test passed — app is live!"
