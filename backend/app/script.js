@@ -601,7 +601,7 @@ function renderUsers() {
             </div>
             <div class="flex flex-col min-w-0">
                 <div class="flex items-center gap-1.5">
-                    <span class="truncate text-xs font-bold ${isOnline ? 'text-white/80' : 'text-white/30'}">${u.username}</span>
+                    <span class="truncate text-xs font-bold ${isOnline ? 'text-white/80' : 'text-white/30'}">${u.username}<span class="opacity-30 font-normal ml-0.5">#${u.tag}</span></span>
                     <span class="text-[9px] opacity-60">${u.status_emoji || '🟢'}</span>
                 </div>
                 <span class="text-[8px] text-muted truncate opacity-40">${u.status_text || 'Available'}</span>
@@ -731,9 +731,9 @@ async function handleVortexSearch(query) {
         return;
     }
 
-    if (query.startsWith('@')) {
-        // ── PEER SEARCH ──────────────────────────────
-        const term = query.slice(1);
+    if (query.startsWith('@') || query.startsWith('#') || query.includes('#')) {
+        // ── PEER SEARCH (Username or Tag) ─────────────
+        const term = query.startsWith('@') ? query.slice(1) : query;
         if (term.length < 1) { overlay.classList.add('hidden'); return; }
         try {
             const res = await fetch(`/search/users?q=${encodeURIComponent(term)}`);
@@ -796,7 +796,7 @@ function renderUnifiedResults({ peers, messages }) {
                     ${isOnline ? '<div class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-bg-deep"></div>' : ''}
                 </div>
                 <div class="flex flex-col min-w-0">
-                    <span class="text-[10px] font-black text-white/90 uppercase tracking-widest truncate">${u.username}</span>
+                    <span class="text-[10px] font-black text-white/90 uppercase tracking-widest truncate">${u.username}<span class="text-white/20 ml-1">#${u.tag}</span></span>
                     <span class="text-[9px] text-white/30 truncate">${u.status_emoji || '🟢'} ${u.status_text || 'Available'}</span>
                 </div>
                 <div class="ml-auto text-[8px] text-cyan-500/40 group-hover:text-cyan-400 transition-colors font-black uppercase">DM →</div>
@@ -995,7 +995,7 @@ function showHoverCard(trigger, userId, username) {
         return;
     }
 
-    document.getElementById('hover-username').innerText = resolvedName;
+    document.getElementById('hover-username').innerHTML = `${resolvedName}<span class="text-white/20 font-normal ml-2">#${user?.tag || '0000'}</span>`;
 
     const avatarEl = document.getElementById('hover-avatar');
     const avatarUrl = user?.avatar_url || (isCurrentUser ? authUser?.avatar_url : null);
@@ -1115,7 +1115,7 @@ function prependMessage(data, atTop = true) {
             <div class="avatar shadow-lg border border-white/5 overflow-hidden user-profile-trigger cursor-pointer flex items-center justify-center" data-user-id="${userId}" style="background:${avatarColor}">${avatarHtml}</div>
             <div class="relative flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[75%]">
                 <div class="flex items-center gap-3 mb-1 px-1">
-                    ${!isMe ? `<span class="text-[10px] font-black uppercase text-indigo-400 tracking-widest cursor-pointer hover:underline user-profile-trigger" data-user-id="${userId}">${data.sender}</span>` : `<span class="text-[10px] font-black uppercase text-white/40 tracking-widest cursor-pointer hover:underline user-profile-trigger" data-user-id="${userId}">You</span>`}
+                    ${!isMe ? `<span class="text-[10px] font-black uppercase text-indigo-400 tracking-widest cursor-pointer hover:underline user-profile-trigger" data-user-id="${userId}">${data.sender}<span class="text-white/20 font-normal ml-0.5">#${data.tag || '????'}</span></span>` : `<span class="text-[10px] font-black uppercase text-white/40 tracking-widest cursor-pointer hover:underline user-profile-trigger" data-user-id="${userId}">You<span class="text-white/10 font-normal ml-0.5">#${authUser?.tag || '????'}</span></span>`}
                     <span class="text-[9px] font-bold opacity-30 text-white uppercase tracking-tighter">${data.time}</span>
                 </div>
                 <div class="p-4 rounded-[2rem] shadow-xl ${isMe ? 'rounded-tr-none text-white' : 'rounded-tl-none'} glass border border-white/[0.03] transition-all" 
@@ -1125,7 +1125,10 @@ function prependMessage(data, atTop = true) {
                 </div>
                 <div class="reactions flex flex-wrap gap-1.5 mt-2">${renderReactions(data.id, data.reactions)}</div>
                 <div class="status text-[9px] text-muted mt-2 flex items-center justify-between w-full px-1">
-                    <div class="flex items-center gap-1.5">${isMe ? SVGS.sent : ''}</div>
+                    <div class="flex items-center gap-1.5">
+                        ${isMe ? SVGS.sent : ''}
+                        <div class="readers-list flex -space-x-1 ml-1"></div>
+                    </div>
                     <div class="hidden group-hover:flex gap-3 items-center ml-4 bg-black/40 backdrop-blur-md rounded-full px-3 py-1.5 border border-white/5">
                         <button onclick="addReaction(${data.id}, '👍')" class="hover:scale-125 transition-transform">👍</button>
                         <button onclick="addReaction(${data.id}, '❤️')" class="hover:scale-125 transition-transform">❤️</button>
@@ -1156,7 +1159,9 @@ function prependMessage(data, atTop = true) {
 function updateStatusFromData(el, data) {
     const statusEl = el.querySelector('.status div:first-child');
     if (data.sender === currentUser && statusEl) {
-        if (data.read_at) {
+        if (data.readers && data.readers.length > 0) {
+            statusEl.innerHTML = SVGS.read;
+        } else if (data.read_at) {
             statusEl.innerHTML = SVGS.read;
         } else if (data.delivered_at) {
             statusEl.innerHTML = SVGS.delivered;
@@ -1164,17 +1169,52 @@ function updateStatusFromData(el, data) {
             statusEl.innerHTML = SVGS.sent;
         }
     }
+    
+    // Render reader avatars
+    if (data.readers && data.readers.length > 0) {
+        renderReaderAvatars(el, data.readers);
+    }
+}
+
+function renderReaderAvatars(msgEl, readers) {
+    const readersList = msgEl.querySelector('.readers-list');
+    if (!readersList) return;
+    
+    // Filter out the sender from readers if they somehow got in there
+    const messageSender = msgEl.querySelector('.font-black').innerText;
+    const actualReaders = readers.filter(r => r.username !== messageSender && r.username !== 'You');
+
+    readersList.innerHTML = actualReaders.slice(0, 5).map(r => {
+        const avatarColor = avatarColorHash(r.username);
+        return `
+            <div class="w-3.5 h-3.5 rounded-full border border-bg-deep overflow-hidden flex items-center justify-center text-[5px] font-black text-white group/reader relative" 
+                 title="Read by ${r.username}"
+                 style="background:${r.avatar_url ? 'transparent' : avatarColor}">
+                ${r.avatar_url ? `<img src="${r.avatar_url}" class="w-full h-full object-cover">` : r.username[0].toUpperCase()}
+            </div>
+        `;
+    }).join('');
+    
+    if (actualReaders.length > 5) {
+        readersList.innerHTML += `<div class="w-3.5 h-3.5 rounded-full border border-bg-deep bg-white/10 flex items-center justify-center text-[5px] font-black text-white/40">+${actualReaders.length - 5}</div>`;
+    }
 }
 
 const intersectionObserver = new IntersectionObserver(entries => {
     entries.forEach(entry => {
         if (entry.isIntersecting && !entry.target.dataset.read) {
-            entry.target.dataset.read = 'true';
             const msgId = entry.target.dataset.msgId;
-            socket.emit('message read', msgId);
+            const msgEl = document.getElementById('msg-' + msgId);
+            const isMe = msgEl && msgEl.querySelector('.font-black')?.innerText === 'You';
+            
+            // Only emit read if it's NOT our own message
+            if (!isMe) {
+                entry.target.dataset.read = 'true';
+                socket.emit('message read', msgId);
+            }
         }
     });
-}, { root: document.getElementById('messages'), threshold: 1.0 });
+}, { root: document.getElementById('messages'), threshold: 0.5 });
 
 function observeMessage(el) {
     const inner = el.querySelector('.relative');
@@ -1307,9 +1347,22 @@ socket.on('message delivered', (msgId) => {
     if (el && !el.innerHTML.includes('receipt-read')) el.innerHTML = SVGS.delivered;
 });
 
-socket.on('message read', (msgId) => {
-    const s = document.querySelector(`[data-msg-id="${msgId}"] .status div:first-child`);
+socket.on('message read', (data) => {
+    // data can be msgId (legacy) or { msgId, readers }
+    const msgId = data.msgId || data;
+    const readers = data.readers || [];
+    
+    const msgEl = document.getElementById('msg-' + msgId);
+    if (!msgEl) return;
+    
+    // Update status icon for sender
+    const s = msgEl.querySelector('.status div:first-child');
     if (s) s.innerHTML = SVGS.read;
+    
+    // Render reader avatars
+    if (readers.length > 0) {
+        renderReaderAvatars(msgEl, readers);
+    }
 });
 
 socket.on('reaction', (data) => {
@@ -1430,6 +1483,39 @@ socket.on('connect_error', (err) => {
     if (err.message.includes('Authentication')) {
         logout();
     }
+});
+
+// --- WebRTC Signaling Listeners ---
+socket.on('call:request', (data) => {
+    if (data.fromUser === authUser.username) return; 
+    incomingCallData = data;
+    document.getElementById('incoming-caller-name').innerText = data.fromUser;
+    document.getElementById('incoming-call-modal').classList.remove('hidden');
+});
+
+socket.on('call:accepted', (data) => {
+    createPeerConnection(data.fromSocket);
+    peerConnection.createOffer().then(offer => {
+        peerConnection.setLocalDescription(offer);
+        socket.emit('webrtc:signal', {
+            toSocket: data.fromSocket,
+            signal: { offer }
+        });
+    });
+});
+
+socket.on('webrtc:signal', (data) => {
+    if (data.signal.offer) {
+        handleOffer(data.signal.offer, data.fromSocket);
+    } else if (data.signal.answer) {
+        peerConnection.setRemoteDescription(new RTCSessionDescription(data.signal.answer));
+    } else if (data.signal.candidate) {
+        peerConnection.addIceCandidate(new RTCIceCandidate(data.signal.candidate));
+    }
+});
+
+socket.on('call:end', () => {
+    cleanupCall();
 });
 
 socket.on('group:userJoined', (data) => {
@@ -1580,10 +1666,210 @@ document.addEventListener('click', (e) => {
     }
 });
 
-document.addEventListener('DOMContentLoaded', async () => {
-    if (authUser?.id) {
-        console.log('Logged in as:', authUser?.id);
-    } else {
-        console.log('No active session found.');
+
+// --- WEBRTC VOICE & VIDEO BRIDGE ---
+let localStream;
+let remoteStream;
+let peerConnection;
+let callStartTime;
+let callTimerInterval;
+let incomingCallData = null;
+let currentCallType = 'video';
+let isScreenSharing = false;
+
+const rtcConfig = {
+    iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' }
+    ]
+};
+
+async function initiateCall(type = 'video') {
+    if (!authUser) return showToast('Identify yourself to initiate uplink.');
+    currentCallType = type;
+    
+    try {
+        showToast(`Initializing ${type} bridge...`);
+        localStream = await navigator.mediaDevices.getUserMedia({
+            video: type === 'video',
+            audio: true
+        });
+        
+        document.getElementById('local-video').srcObject = localStream;
+        document.getElementById('call-overlay').classList.add('active');
+        document.getElementById('call-status-text').innerText = 'Requesting Neural Connection...';
+        
+        socket.emit('call:request', {
+            toRoom: activeRoom,
+            fromUser: authUser.username,
+            type: type
+        });
+    } catch (err) {
+        console.error('Media access failed:', err);
+        showToast('Media access denied. Check permissions.');
     }
-});
+}
+
+async function acceptCall() {
+    if (!incomingCallData) return;
+    document.getElementById('incoming-call-modal').classList.add('hidden');
+    
+    try {
+        currentCallType = incomingCallData.type;
+        localStream = await navigator.mediaDevices.getUserMedia({
+            video: currentCallType === 'video',
+            audio: true
+        });
+        
+        document.getElementById('local-video').srcObject = localStream;
+        document.getElementById('call-overlay').classList.add('active');
+        
+        socket.emit('call:accepted', {
+            toSocket: incomingCallData.fromSocket,
+            fromUser: authUser.username
+        });
+        
+        createPeerConnection(incomingCallData.fromSocket);
+    } catch (err) {
+        console.error('Call acceptance failed:', err);
+        showToast('Failed to access media for call.');
+    }
+}
+
+function rejectCall() {
+    document.getElementById('incoming-call-modal').classList.add('hidden');
+    if (incomingCallData) {
+        socket.emit('call:end', { toSocket: incomingCallData.fromSocket });
+    }
+    incomingCallData = null;
+}
+
+function endCall() {
+    socket.emit('call:end', { toRoom: activeRoom });
+    cleanupCall();
+}
+
+function cleanupCall() {
+    if (localStream) localStream.getTracks().forEach(track => track.stop());
+    if (peerConnection) peerConnection.close();
+    
+    localStream = null;
+    remoteStream = null;
+    peerConnection = null;
+    
+    document.getElementById('call-overlay').classList.remove('active');
+    document.getElementById('local-video').srcObject = null;
+    document.getElementById('remote-video').srcObject = null;
+    
+    clearInterval(callTimerInterval);
+    document.getElementById('call-timer').innerText = '00:00';
+    showToast('Neural link terminated.');
+}
+
+function createPeerConnection(remoteSocketId) {
+    peerConnection = new RTCPeerConnection(rtcConfig);
+    
+    remoteStream = new MediaStream();
+    document.getElementById('remote-video').srcObject = remoteStream;
+    
+    localStream.getTracks().forEach(track => {
+        peerConnection.addTrack(track, localStream);
+    });
+    
+    peerConnection.ontrack = (event) => {
+        event.streams[0].getTracks().forEach(track => {
+            remoteStream.addTrack(track);
+        });
+    };
+    
+    peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+            socket.emit('webrtc:signal', {
+                toSocket: remoteSocketId,
+                signal: { candidate: event.candidate }
+            });
+        }
+    };
+    
+    peerConnection.onconnectionstatechange = () => {
+        if (peerConnection.connectionState === 'connected') {
+            startCallTimer();
+            document.getElementById('call-status-text').innerText = 'Link Established (Quantum Mode)';
+        }
+    };
+}
+
+async function handleOffer(offer, remoteSocketId) {
+    createPeerConnection(remoteSocketId);
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+    const answer = await peerConnection.createAnswer();
+    await peerConnection.setLocalDescription(answer);
+    
+    socket.emit('webrtc:signal', {
+        toSocket: remoteSocketId,
+        signal: { answer }
+    });
+}
+
+function startCallTimer() {
+    callStartTime = Date.now();
+    clearInterval(callTimerInterval);
+    callTimerInterval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - callStartTime) / 1000);
+        const mins = Math.floor(elapsed / 60).toString().padStart(2, '0');
+        const secs = (elapsed % 60).toString().padStart(2, '0');
+        document.getElementById('call-timer').innerText = `${mins}:${secs}`;
+    }, 1000);
+}
+
+function toggleMic() {
+    const audioTrack = localStream.getAudioTracks()[0];
+    if (audioTrack) {
+        audioTrack.enabled = !audioTrack.enabled;
+        const btn = document.getElementById('btn-toggle-mic');
+        btn.classList.toggle('inactive', !audioTrack.enabled);
+        btn.innerHTML = audioTrack.enabled ? '<i class="fas fa-microphone"></i>' : '<i class="fas fa-microphone-slash"></i>';
+    }
+}
+
+function toggleVideo() {
+    const videoTrack = localStream.getVideoTracks()[0];
+    if (videoTrack) {
+        videoTrack.enabled = !videoTrack.enabled;
+        const btn = document.getElementById('btn-toggle-video');
+        btn.classList.toggle('inactive', !videoTrack.enabled);
+        btn.innerHTML = videoTrack.enabled ? '<i class="fas fa-video"></i>' : '<i class="fas fa-video-slash"></i>';
+    }
+}
+
+async function toggleScreenShare() {
+    if (!isScreenSharing) {
+        try {
+            const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+            const videoTrack = screenStream.getVideoTracks()[0];
+            
+            const sender = peerConnection.getSenders().find(s => s.track.kind === 'video');
+            sender.replaceTrack(videoTrack);
+            
+            document.getElementById('local-video').srcObject = screenStream;
+            isScreenSharing = true;
+            
+            videoTrack.onended = () => {
+                stopScreenShare();
+            };
+        } catch (err) {
+            console.error('Screen share failed:', err);
+        }
+    } else {
+        stopScreenShare();
+    }
+}
+
+function stopScreenShare() {
+    const videoTrack = localStream.getVideoTracks()[0];
+    const sender = peerConnection.getSenders().find(s => s.track.kind === 'video');
+    sender.replaceTrack(videoTrack);
+    document.getElementById('local-video').srcObject = localStream;
+    isScreenSharing = false;
+}

@@ -255,7 +255,26 @@ async function runMigrations() {
       console.log('✅ Added presence tracking columns to users table');
     }
 
+    // Add tag column to users if missing
+    const tagCheck = await db.query(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_name = 'users' AND column_name = 'tag'
+    `);
+    if (tagCheck.rows.length === 0) {
+      await db.query("ALTER TABLE users ADD COLUMN tag TEXT");
+      console.log('✅ Added tag column to users table');
+      
+      // Backfill existing users with random tags
+      const users = await db.query("SELECT id FROM users WHERE tag IS NULL");
+      for (const user of users.rows) {
+          const tag = Math.floor(1000 + Math.random() * 9000).toString();
+          await db.query("UPDATE users SET tag = $1 WHERE id = $2", [tag, user.id]);
+      }
+      console.log(`✅ Backfilled ${users.rows.length} users with tags`);
+    }
+
     // Add group_id column to messages if it doesn't exist
+
     const colCheck = await db.query(`
       SELECT column_name FROM information_schema.columns
       WHERE table_name = 'messages' AND column_name = 'group_id'
@@ -343,6 +362,19 @@ async function runMigrations() {
       )
     `);
     console.log('✅ Group members table ready');
+
+    // Ensure message_reads table exists for individual read tracking
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS message_reads (
+        id SERIAL PRIMARY KEY,
+        message_id INT REFERENCES messages(id) ON DELETE CASCADE,
+        user_id INT REFERENCES users(id) ON DELETE CASCADE,
+        read_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(message_id, user_id)
+      )
+    `);
+    console.log('✅ Message reads table ready');
+
   } catch (err) {
     console.warn('⚠️ Migration warning (non-fatal):', err.message);
   }
@@ -356,6 +388,7 @@ function setupMemoryFallback() {
     users: [],
     messages: [],
     reactions: [],
+    message_reads: [],
     groups: [
       { id: 1, name: 'general', created_by: 'system', created_at: new Date() },
       { id: 2, name: 'dev-ops', created_by: 'system', created_at: new Date() },
@@ -376,7 +409,8 @@ function setupMemoryFallback() {
             bio: 'Neural interface active...', 
             status_text: 'Available',
             status_emoji: '🟢',
-            preferred_theme: 'dark' 
+            preferred_theme: 'dark',
+            tag: Math.floor(1000 + Math.random() * 9000).toString()
         };
         memoryStore.users.push(user);
         return { rows: [user] };
@@ -413,10 +447,26 @@ function setupMemoryFallback() {
         return { rows: memoryStore.users };
       }
       // Reactions
-      if (text.includes('INSERT INTO reactions')) {
         const reaction = { message_id: params[0], user_id: params[1], emoji: params[2] };
         memoryStore.reactions.push(reaction);
         return { rows: [reaction] };
+      }
+      // Message Reads (Memory)
+      if (text.includes('INSERT INTO message_reads')) {
+        const existing = memoryStore.message_reads.find(r => r.message_id === params[0] && r.user_id === params[1]);
+        if (!existing) {
+          memoryStore.message_reads.push({ message_id: params[0], user_id: params[1], read_at: new Date() });
+        }
+        return { rows: [] };
+      }
+      if (text.includes('SELECT mr.user_id, u.username, u.avatar_url FROM message_reads')) {
+        const readers = memoryStore.message_reads
+          .filter(r => r.message_id === params[0])
+          .map(r => {
+            const u = memoryStore.users.find(usr => usr.id === r.user_id);
+            return { user_id: r.user_id, username: u?.username || 'unknown', avatar_url: u?.avatar_url || null };
+          });
+        return { rows: readers };
       }
       // Groups queries
       if (text.includes('INSERT INTO groups')) {
@@ -455,7 +505,11 @@ function setupMemoryFallback() {
           reactions: memoryStore.reactions.filter(r => r.message_id === m.id).map(r => ({
             ...r,
             username: memoryStore.users.find(u => u.id === r.user_id)?.username || 'unknown'
-          }))
+          })),
+          readers: memoryStore.message_reads.filter(r => r.message_id === m.id).map(r => {
+            const u = memoryStore.users.find(usr => usr.id === r.user_id);
+            return { user_id: r.user_id, username: u?.username || 'unknown', avatar_url: u?.avatar_url || null };
+          })
         }));
         return { rows: results };
       }
@@ -493,7 +547,22 @@ function setupMemoryFallback() {
   };
 }
 
+// Helper to generate a unique 4-digit tag
+async function generateUniqueTag() {
+    let tag;
+    let isUnique = false;
+    let attempts = 0;
+    while (!isUnique && attempts < 10) {
+        tag = Math.floor(1000 + Math.random() * 9000).toString();
+        const result = await db.query('SELECT id FROM users WHERE tag = $1', [tag]);
+        if (result.rows.length === 0) isUnique = true;
+        attempts++;
+    }
+    return tag;
+}
+
 // Setup Redis adapter for Socket.IO clustering
+
 const redisClient = createClient({
   host: process.env.REDIS_HOST || 'redis-service',
   port: process.env.REDIS_PORT || 6379,
@@ -525,22 +594,24 @@ app.post('/api/login', async (req, res) => {
 
     const cleanUsername = username.trim();
     try {
-        // Upsert: insert the user only if they don't exist already (UNIQUE constraint on username)
-        await db.query(
-            'INSERT INTO users (username) VALUES ($1) ON CONFLICT (username) DO NOTHING',
-            [cleanUsername]
-        );
-        // Always fetch the canonical row
-        const result = await db.query('SELECT id, username, preferred_theme FROM users WHERE username = $1', [cleanUsername]);
-        const user = result.rows[0];
+        // Check if user exists
+        let result = await db.query('SELECT * FROM users WHERE username = $1', [cleanUsername]);
+        let user;
 
-        // Guard: user must exist after upsert
-        if (!user) {
-            return res.status(500).json({ error: 'Failed to create or retrieve user. Please try again.' });
+        if (result.rows.length === 0) {
+            // Create new user with a unique tag
+            const tag = await generateUniqueTag();
+            const insertResult = await db.query(
+                'INSERT INTO users (username, tag) VALUES ($1, $2) RETURNING id, username, preferred_theme, tag',
+                [cleanUsername, tag]
+            );
+            user = insertResult.rows[0];
+        } else {
+            user = result.rows[0];
         }
 
         const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '24h' });
-        res.json({ token, user: { id: user.id, username: user.username, preferred_theme: user.preferred_theme } });
+        res.json({ token, user: { id: user.id, username: user.username, preferred_theme: user.preferred_theme, tag: user.tag } });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -569,10 +640,11 @@ app.post('/auth/google', async (req, res) => {
         
         let user;
         if (result.rows.length === 0) {
-            // Create new user
+            // Create new user with tag
+            const tag = await generateUniqueTag();
             const insertResult = await db.query(
-                'INSERT INTO users (username, google_id, avatar_url) VALUES ($1, $2, $3) RETURNING id, username, preferred_theme',
-                [username, sub, picture]
+                'INSERT INTO users (username, google_id, avatar_url, tag) VALUES ($1, $2, $3, $4) RETURNING id, username, preferred_theme, tag',
+                [username, sub, picture, tag]
             );
             user = insertResult.rows[0];
         } else {
@@ -584,7 +656,7 @@ app.post('/auth/google', async (req, res) => {
         }
 
         const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '24h' });
-        res.json({ token, user: { id: user.id, username: user.username, preferred_theme: user.preferred_theme, avatar_url: picture } });
+        res.json({ token, user: { id: user.id, username: user.username, preferred_theme: user.preferred_theme, avatar_url: picture, tag: user.tag } });
     } catch (err) {
         console.error('Google Auth Error:', err);
         res.status(400).json({ error: 'Google authentication failed' });
@@ -600,7 +672,7 @@ app.post('/upload', upload.single('file'), (req, res) => {
 // --- USERS ---
 app.get('/users', async (req, res) => {
     try {
-        const result = await db.query('SELECT id, username FROM users');
+        const result = await db.query('SELECT id, username, tag FROM users');
         res.json(result.rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -652,8 +724,9 @@ app.get('/messages', async (req, res) => {
     const room = req.query.room || 'general';
     try {
         const result = await db.query(
-            `SELECT m.id, m.sender, m.text, m.time, m.delivered_at, m.read_at, m.created_at, m.user_id, m.room, m.parent_id, u.avatar_url,
-            (SELECT json_agg(re) FROM (SELECT r.emoji, r.user_id, u.username FROM reactions r JOIN users u ON r.user_id = u.id WHERE r.message_id = m.id) re) as reactions
+            `SELECT m.id, m.sender, m.text, m.time, m.delivered_at, m.read_at, m.created_at, m.user_id, m.room, m.parent_id, u.avatar_url, u.tag,
+            (SELECT json_agg(re) FROM (SELECT r.emoji, r.user_id, u.username FROM reactions r JOIN users u ON r.user_id = u.id WHERE r.message_id = m.id) re) as reactions,
+            (SELECT json_agg(rd) FROM (SELECT mr.user_id, u.username, u.avatar_url FROM message_reads mr JOIN users u ON mr.user_id = u.id WHERE mr.message_id = m.id) rd) as readers
             FROM messages m 
             LEFT JOIN users u ON m.user_id = u.id
             WHERE m.room = $1 
@@ -707,12 +780,25 @@ app.get('/search/users', async (req, res) => {
     const query = req.query.q;
     if (!query) return res.json([]);
     try {
-        const result = await db.query(
-            `SELECT id, username, bio, status_text, status_emoji, avatar_url
-             FROM users
-             WHERE username ILIKE $1
-             ORDER BY username ASC
-             LIMIT 10`,
+        let sql = `SELECT id, username, tag, bio, status_text, status_emoji, avatar_url FROM users`;
+        let params = [];
+
+        if (query.startsWith('#')) {
+            sql += ` WHERE tag = $1`;
+            params = [query.slice(1)];
+        } else if (query.includes('#')) {
+            const [name, tag] = query.split('#');
+            sql += ` WHERE username ILIKE $1 AND tag = $2`;
+            params = [`%${name}%`, tag];
+        } else {
+            sql += ` WHERE username ILIKE $1`;
+            params = [`%${query}%`];
+        }
+
+        sql += ` ORDER BY username ASC LIMIT 10`;
+        const result = await db.query(sql, params);
+        res.json(result.rows);
+    } catch (err) {
             [`%${query}%`]
         );
         res.json(result.rows);
@@ -758,9 +844,10 @@ io.use((socket, next) => {
             
             // Supabase user id is a UUID, which might fail the pg query if id is INT.
             // Using a try-catch will gracefully fallback.
-            const result = await db.query('SELECT avatar_url FROM users WHERE id = $1', [decoded.id]);
+            const result = await db.query('SELECT avatar_url, tag FROM users WHERE id = $1', [decoded.id]);
             decoded.avatar_url = result.rows[0]?.avatar_url || null;
-            socket.user = decoded; // { id, username, avatar_url }
+            decoded.tag = result.rows[0]?.tag || '0000';
+            socket.user = decoded; // { id, username, avatar_url, tag }
             next();
         } catch (dbErr) {
             socket.user = decoded;
@@ -1273,6 +1360,7 @@ io.on('connection', (socket) => {
             sender: socket.user.username,
             userId: socket.user.id,
             avatar_url: socket.user.avatar_url,
+            tag: socket.user.tag,
             text: data.text,
             time: data.time || new Date().toLocaleTimeString(),
             room: room,
@@ -1321,9 +1409,46 @@ io.on('connection', (socket) => {
 
     socket.on('message read', async (msgId) => {
         try {
+            if (!socket.user) return;
+            // Record that this specific user read the message
+            await db.query(
+                'INSERT INTO message_reads (message_id, user_id) VALUES ($1, $2) ON CONFLICT (message_id, user_id) DO NOTHING',
+                [msgId, socket.user.id]
+            );
+            
+            // Still update the main read_at for legacy support/DMs
             await db.query('UPDATE messages SET read_at = NOW() WHERE id = $1', [msgId]);
-            io.emit('message read', msgId);
-        } catch (err) { console.error(err); }
+            
+            // Get updated list of readers
+            const result = await db.query(
+                'SELECT mr.user_id, u.username, u.avatar_url FROM message_reads mr JOIN users u ON mr.user_id = u.id WHERE mr.message_id = $1',
+                [msgId]
+            );
+            
+            io.emit('message read', { msgId, readers: result.rows });
+        } catch (err) { console.error('Read receipt failed:', err); }
+    });
+
+    // WebRTC Signaling
+    socket.on('call:request', (data) => {
+        // data: { toRoom, fromUser, type: 'voice' | 'video' }
+        socket.to(data.toRoom).emit('call:request', { ...data, fromSocket: socket.id });
+    });
+
+    socket.on('call:accepted', (data) => {
+        // data: { toSocket, fromUser }
+        io.to(data.toSocket).emit('call:accepted', { fromSocket: socket.id, fromUser: data.fromUser });
+    });
+
+    socket.on('webrtc:signal', (data) => {
+        // data: { toSocket, signal }
+        io.to(data.toSocket).emit('webrtc:signal', { fromSocket: socket.id, signal: data.signal });
+    });
+
+    socket.on('call:end', (data) => {
+        // data: { toRoom | toSocket }
+        if (data.toRoom) socket.to(data.toRoom).emit('call:end');
+        if (data.toSocket) io.to(data.toSocket).emit('call:end');
     });
 
     // clear all messages (admin action)
