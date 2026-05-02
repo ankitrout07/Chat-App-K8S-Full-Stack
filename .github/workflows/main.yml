@@ -9,7 +9,7 @@ on:
 env:
   AZURE_WEBAPP_NAME: 'vortex-chat'
   AZURE_RESOURCE_GROUP: 'Dev-Test-RG'
-  AZURE_LOCATION: 'centralindia'
+  AZURE_LOCATION: 'eastus'
   AZURE_PLAN_NAME: 'vortex-plan'
 
 permissions:
@@ -27,7 +27,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22.x'
+          node-version: '20.x'
           cache: 'npm'
           cache-dependency-path: 'backend/package.json'
 
@@ -76,20 +76,26 @@ jobs:
           az group create --name ${{ env.AZURE_RESOURCE_GROUP }} --location ${{ env.AZURE_LOCATION }}
           
           # Create or Update App Service Plan to B1 (Basic)
+          # We use a separate check for Linux compatibility
           if ! az appservice plan show --name ${{ env.AZURE_PLAN_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} > /dev/null 2>&1; then
-            az appservice plan create --name ${{ env.AZURE_PLAN_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --sku B1 --is-linux
+            echo "Creating new Linux App Service Plan..."
+            az appservice plan create --name ${{ env.AZURE_PLAN_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --sku B1 --is-linux --location ${{ env.AZURE_LOCATION }}
           else
+            echo "Updating existing App Service Plan..."
             az appservice plan update --name ${{ env.AZURE_PLAN_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --sku B1
           fi
           
           # Create Web App if it doesn't exist
           if ! az webapp show --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} > /dev/null 2>&1; then
-            az webapp create --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --plan ${{ env.AZURE_PLAN_NAME }} --runtime "NODE:22-lts"
+            echo "Creating new Web App..."
+            az webapp create --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --plan ${{ env.AZURE_PLAN_NAME }} --runtime "NODE:20-lts"
           fi
           
           # Configure App Settings and Startup
           az webapp config appsettings set --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --settings SCM_DO_BUILD_DURING_DEPLOYMENT=true
           az webapp config set --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --startup-file "node server.js"
+          
+          # Only set Always On if SKU supports it (Basic and above)
           az webapp config set --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --always-on true
 
   # 4. Dependent Job: Deployment
