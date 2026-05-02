@@ -832,3 +832,143 @@ h1.brand-logo {
     70% { box-shadow: 0 0 0 15px rgba(139, 92, 246, 0); }
     100% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0); }
 }
+
+/* ─── Quantum Frontend Improvisations ─── */
+
+/* Decryption / Scramble Animation */
+.scramble-text {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--accent);
+}
+
+@keyframes scrambleIn {
+    0% { opacity: 0; filter: blur(4px); transform: translateY(4px); }
+    100% { opacity: 1; filter: blur(0); transform: translateY(0); }
+}
+
+.message-decryption {
+    animation: scrambleIn 0.3s ease-out;
+}
+
+/* Link Previews */
+.link-preview-card {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    margin-top: 12px;
+    padding: 12px;
+    display: flex;
+    gap: 16px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    max-width: 480px;
+}
+
+.link-preview-card:hover {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: var(--accent);
+    transform: translateX(4px);
+}
+
+.link-preview-image {
+    width: 80px;
+    height: 80px;
+    border-radius: 12px;
+    background: var(--bg-deep);
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.link-preview-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.6;
+}
+
+/* Reaction Picker 2.0 */
+.reaction-picker {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    padding: 8px;
+    display: none;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 4px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+    z-index: 1000;
+    animation: popUp 0.2s cubic-bezier(0.17, 0.67, 0.83, 1.2);
+}
+
+.reaction-picker.active {
+    display: grid;
+}
+
+.reaction-option {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.reaction-option:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: scale(1.2);
+}
+
+@keyframes popUp {
+    from { opacity: 0; transform: translateY(10px) scale(0.9); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Enhanced Hover Card Telemetry */
+.telemetry-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.telemetry-item {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: 8px;
+    text-align: center;
+}
+
+.telemetry-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--accent);
+    font-weight: 800;
+}
+
+.telemetry-label {
+    font-size: 7px;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.3);
+    letter-spacing: 0.1em;
+    margin-top: 2px;
+}
+
+/* Skeleton Loading */
+.skeleton {
+    background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.03) 75%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+    from { background-position: 200% 0; }
+    to { background-position: -200% 0; }
+}

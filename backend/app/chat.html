@@ -571,9 +571,9 @@
     </div>
 
     <!-- User Hover Card -->
-    <div id="user-hover-card" class="fixed pointer-events-none opacity-0 z-[200] w-64 glass-panel rounded-[2rem] p-6 border border-white/10 shadow-2xl transition-all duration-300 translate-y-2 scale-95">
+    <div id="user-hover-card" class="fixed pointer-events-none opacity-0 z-[200] w-72 glass-panel rounded-[2rem] p-6 border border-white/10 shadow-2xl transition-all duration-300 translate-y-2 scale-95">
         <div class="flex items-center gap-4 mb-4">
-            <div id="hover-avatar" class="w-14 h-14 rounded-2xl flex items-center justify-center font-black text-white shadow-xl" style="background:var(--accent)">?</div>
+            <div id="hover-avatar" class="w-16 h-16 rounded-2xl flex items-center justify-center font-black text-white shadow-xl" style="background:var(--accent)">?</div>
             <div class="flex flex-col">
                 <h4 id="hover-username" class="font-black text-sm uppercase text-white tracking-tight">Username</h4>
                 <div class="flex items-center gap-1.5 mt-0.5">
@@ -582,13 +582,49 @@
                 </div>
             </div>
         </div>
-        <div class="space-y-3">
+        <div class="space-y-4">
             <div class="h-px bg-white/5"></div>
             <p id="hover-bio" class="text-[10px] text-white/60 leading-relaxed italic">Neural interface active...</p>
-            <div class="flex items-center gap-2 pt-1">
-                <span class="text-[8px] font-black uppercase text-indigo-400/50 tracking-widest">Dept: Engineering</span>
+            
+            <div class="telemetry-grid">
+                <div class="telemetry-item">
+                    <div class="telemetry-value" id="hover-latency">24ms</div>
+                    <div class="telemetry-label">Latency</div>
+                </div>
+                <div class="telemetry-item">
+                    <div class="telemetry-value" id="hover-uplink">Optimal</div>
+                    <div class="telemetry-label">Uplink</div>
+                </div>
+                <div class="telemetry-item">
+                    <div class="telemetry-value" id="hover-nodes">v14.2</div>
+                    <div class="telemetry-label">Protocol</div>
+                </div>
+                <div class="telemetry-item">
+                    <div class="telemetry-value text-indigo-400" id="hover-uptime">99.9%</div>
+                    <div class="telemetry-label">Sync</div>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 pt-2 border-t border-white/5">
+                <span class="text-[7px] font-black uppercase text-indigo-400/50 tracking-widest">Dept: Cyber-Security Engine</span>
             </div>
         </div>
+    </div>
+
+    <!-- Floating Emoji Picker -->
+    <div id="global-reaction-picker" class="reaction-picker">
+        <div class="reaction-option" onclick="handleReactionSelect('🔥')">🔥</div>
+        <div class="reaction-option" onclick="handleReactionSelect('🚀')">🚀</div>
+        <div class="reaction-option" onclick="handleReactionSelect('💎')">💎</div>
+        <div class="reaction-option" onclick="handleReactionSelect('⚡')">⚡</div>
+        <div class="reaction-option" onclick="handleReactionSelect('🛡️')">🛡️</div>
+        <div class="reaction-option" onclick="handleReactionSelect('🛸')">🛸</div>
+        <div class="reaction-option" onclick="handleReactionSelect('👾')">👾</div>
+        <div class="reaction-option" onclick="handleReactionSelect('🤖')">🤖</div>
+        <div class="reaction-option" onclick="handleReactionSelect('🧬')">🧬</div>
+        <div class="reaction-option" onclick="handleReactionSelect('⚛️')">⚛️</div>
+        <div class="reaction-option" onclick="handleReactionSelect('🌌')">🌌</div>
+        <div class="reaction-option" onclick="handleReactionSelect('🔮')">🔮</div>
     </div>
     
     <script>

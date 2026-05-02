@@ -1129,10 +1129,11 @@ function prependMessage(data, atTop = true) {
                         ${isMe ? SVGS.sent : ''}
                         <div class="readers-list flex -space-x-1 ml-1"></div>
                     </div>
-                    <div class="hidden group-hover:flex gap-3 items-center ml-4 bg-black/40 backdrop-blur-md rounded-full px-3 py-1.5 border border-white/5">
+                    <div class="hidden group-hover:flex gap-3 items-center ml-4 bg-black/40 backdrop-blur-md rounded-full px-3 py-1.5 border border-white/5 shadow-2xl">
                         <button onclick="addReaction(${data.id}, '👍')" class="hover:scale-125 transition-transform">👍</button>
                         <button onclick="addReaction(${data.id}, '❤️')" class="hover:scale-125 transition-transform">❤️</button>
                         <button onclick="addReaction(${data.id}, '🔥')" class="hover:scale-125 transition-transform">🔥</button>
+                        <button onclick="openReactionPicker(event, ${data.id})" class="hover:scale-125 transition-transform text-[10px] text-white/40 hover:text-white"><i class="fas fa-plus"></i></button>
                         ${isMe ? `<button onclick="deleteMessage(${data.id})" class="hover:text-red-500 transition-colors ml-1"><i class="fas fa-trash-alt text-[10px]"></i></button>` : ''}
                     </div>
                 </div>
@@ -1150,6 +1151,16 @@ function prependMessage(data, atTop = true) {
         updateStatusFromData(msgEl, data);
         if (!isMe && !atTop) {
             socket.emit('message delivered', data.id);
+        }
+
+        // --- IMPROVISATIONS ---
+        const textContainer = msgEl.querySelector('.relative.flex.flex-col .p-4') || msgEl.querySelector('.relative.flex.flex-col .p-3');
+        if (textContainer) {
+            detectAndRenderLinks(data.text, textContainer);
+            if (!isHistory) {
+                const p = textContainer.querySelector('p');
+                if (p) scrambleText(p, p.innerText);
+            }
         }
     }
     updateMessageCount();
@@ -1873,3 +1884,107 @@ function stopScreenShare() {
     document.getElementById('local-video').srcObject = localStream;
     isScreenSharing = false;
 }
+
+// --- QUANTUM FRONTEND IMPROVISATIONS ---
+let activeReactionMessageId = null;
+
+function openReactionPicker(event, msgId) {
+    event.stopPropagation();
+    const picker = document.getElementById('global-reaction-picker');
+    activeReactionMessageId = msgId;
+    
+    const rect = event.currentTarget.getBoundingClientRect();
+    picker.style.left = `${rect.left}px`;
+    picker.style.top = `${rect.top - 160}px`;
+    picker.classList.add('active');
+}
+
+document.addEventListener('click', () => {
+    const picker = document.getElementById('global-reaction-picker');
+    if (picker) picker.classList.remove('active');
+});
+
+function handleReactionSelect(emoji) {
+    if (!activeReactionMessageId) return;
+    socket.emit('reaction', { messageId: activeReactionMessageId, emoji: emoji });
+    document.getElementById('global-reaction-picker').classList.remove('active');
+}
+
+// Scramble / Decryption Effect
+function scrambleText(element, finalValue, duration = 800) {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+';
+    let iterations = 0;
+    const maxIterations = Math.floor(duration / 50);
+    
+    const interval = setInterval(() => {
+        element.innerText = finalValue
+            .split('')
+            .map((char, index) => {
+                if (index < (iterations / maxIterations) * finalValue.length) {
+                    return finalValue[index];
+                }
+                return chars[Math.floor(Math.random() * chars.length)];
+            })
+            .join('');
+            
+        if (iterations >= maxIterations) {
+            clearInterval(interval);
+            element.innerText = finalValue;
+        }
+        iterations++;
+    }, 50);
+}
+
+// Link Preview Engine
+function detectAndRenderLinks(text, container) {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const matches = text.match(urlRegex);
+    if (!matches) return;
+
+    matches.forEach(url => {
+        try {
+            const domain = new URL(url).hostname;
+            const preview = document.createElement('div');
+            preview.className = 'link-preview-card animate-in fade-in slide-in-from-bottom-2';
+            preview.onclick = () => window.open(url, '_blank');
+            
+            preview.innerHTML = `
+                <div class="link-preview-image">
+                    <img src="https://www.google.com/s2/favicons?sz=64&domain=${domain}" alt="favicon">
+                </div>
+                <div class="flex flex-col justify-center min-w-0">
+                    <div class="text-[8px] font-black uppercase text-indigo-400 tracking-widest mb-1">Signal Source</div>
+                    <div class="text-[11px] font-bold text-white truncate">${domain}</div>
+                    <div class="text-[9px] text-white/40 truncate mt-0.5">Quantum link decrypted and verified.</div>
+                </div>
+            `;
+            container.appendChild(preview);
+        } catch (e) {
+            console.warn('Invalid URL in preview detector');
+        }
+    });
+}
+
+// Enhanced Hover Card Populate
+function populateTelemetry() {
+    const latency = Math.floor(Math.random() * 50) + 10;
+    const uplinks = ['Optimal', 'Stable', 'Encrypted', 'High-Bandwidth'];
+    const uptime = (99.90 + Math.random() * 0.1).toFixed(2);
+    
+    const latEl = document.getElementById('hover-latency');
+    const upEl = document.getElementById('hover-uplink');
+    const syncEl = document.getElementById('hover-uptime');
+    
+    if (latEl) latEl.innerText = `${latency}ms`;
+    if (upEl) upEl.innerText = uplinks[Math.floor(Math.random() * uplinks.length)];
+    if (syncEl) syncEl.innerText = `${uptime}%`;
+}
+
+// Hook into hover card
+const originalShowHover = showUserHoverCard;
+showUserHoverCard = function(userId, username, element) {
+    if (typeof originalShowHover === 'function') {
+        originalShowHover(userId, username, element);
+    }
+    populateTelemetry();
+};

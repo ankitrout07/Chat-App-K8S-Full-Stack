@@ -446,7 +446,7 @@ function setupMemoryFallback() {
       if (text.includes('SELECT id, username FROM users')) {
         return { rows: memoryStore.users };
       }
-      // Reactions
+      if (text.includes('INSERT INTO reactions')) {
         const reaction = { message_id: params[0], user_id: params[1], emoji: params[2] };
         memoryStore.reactions.push(reaction);
         return { rows: [reaction] };
@@ -797,10 +797,6 @@ app.get('/search/users', async (req, res) => {
 
         sql += ` ORDER BY username ASC LIMIT 10`;
         const result = await db.query(sql, params);
-        res.json(result.rows);
-    } catch (err) {
-            [`%${query}%`]
-        );
         res.json(result.rows);
     } catch (err) {
         // Memory fallback
