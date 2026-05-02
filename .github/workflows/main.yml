@@ -9,7 +9,8 @@ on:
 env:
   AZURE_WEBAPP_NAME: 'vortex-chat'
   AZURE_RESOURCE_GROUP: 'Dev-Test-RG'
-  AZURE_LOCATION: 'eastus'
+  AZURE_RG_LOCATION: 'centralindia'  # Existing RG location
+  AZURE_LOCATION: 'eastus'           # Target app location
   AZURE_PLAN_NAME: 'vortex-plan'
 
 permissions:
@@ -72,8 +73,8 @@ jobs:
 
       - name: 'Ensure Azure Resources Exist'
         run: |
-          # Create Resource Group if it doesn't exist
-          az group create --name ${{ env.AZURE_RESOURCE_GROUP }} --location ${{ env.AZURE_LOCATION }}
+          # Create Resource Group if it doesn't exist (using existing location)
+          az group create --name ${{ env.AZURE_RESOURCE_GROUP }} --location ${{ env.AZURE_RG_LOCATION }}
           
           # Create or Update App Service Plan to B1 (Basic)
           # We use a separate check for Linux compatibility
