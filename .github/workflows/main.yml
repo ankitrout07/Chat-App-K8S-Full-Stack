@@ -9,8 +9,7 @@ on:
 env:
   AZURE_WEBAPP_NAME: 'vortex-chat'
   AZURE_RESOURCE_GROUP: 'Dev-Test-RG'
-  AZURE_RG_LOCATION: 'centralindia'  # Existing RG location
-  AZURE_LOCATION: 'eastus'           # Target app location
+  AZURE_LOCATION: 'centralindia'
   AZURE_PLAN_NAME: 'vortex-plan'
 
 permissions:
@@ -73,17 +72,17 @@ jobs:
 
       - name: 'Ensure Azure Resources Exist'
         run: |
-          # Create Resource Group if it doesn't exist (using existing location)
-          az group create --name ${{ env.AZURE_RESOURCE_GROUP }} --location ${{ env.AZURE_RG_LOCATION }}
+          # Create Resource Group if it doesn't exist
+          az group create --name ${{ env.AZURE_RESOURCE_GROUP }} --location ${{ env.AZURE_LOCATION }}
           
-          # Create or Update App Service Plan to B1 (Basic)
-          # We use a separate check for Linux compatibility
+          # Create or Update App Service Plan to S1 (Standard)
+          # S1 is more reliable for Linux features in Central India
           if ! az appservice plan show --name ${{ env.AZURE_PLAN_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} > /dev/null 2>&1; then
-            echo "Creating new Linux App Service Plan..."
-            az appservice plan create --name ${{ env.AZURE_PLAN_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --sku B1 --is-linux --location ${{ env.AZURE_LOCATION }}
+            echo "Creating new Linux App Service Plan (S1)..."
+            az appservice plan create --name ${{ env.AZURE_PLAN_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --sku S1 --is-linux --location ${{ env.AZURE_LOCATION }}
           else
-            echo "Updating existing App Service Plan..."
-            az appservice plan update --name ${{ env.AZURE_PLAN_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --sku B1
+            echo "Updating existing App Service Plan to S1..."
+            az appservice plan update --name ${{ env.AZURE_PLAN_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --sku S1
           fi
           
           # Create Web App if it doesn't exist
