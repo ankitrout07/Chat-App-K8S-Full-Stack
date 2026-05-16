@@ -173,6 +173,7 @@ async function runMigrations() {
         group_id INT REFERENCES groups(id) ON DELETE CASCADE,
         parent_id INT REFERENCES messages(id) ON DELETE CASCADE,
         is_pinned BOOLEAN DEFAULT FALSE,
+        is_encrypted BOOLEAN DEFAULT FALSE,
         delivered_at TIMESTAMP,
         read_at TIMESTAMP,
         updated_at TIMESTAMP,
@@ -253,6 +254,26 @@ async function runMigrations() {
       await db.query("ALTER TABLE users ADD COLUMN presence_status TEXT DEFAULT 'Offline'");
       await db.query("ALTER TABLE users ADD COLUMN last_seen TIMESTAMP DEFAULT NOW()");
       console.log('✅ Added presence tracking columns to users table');
+    }
+
+    // Add public_key column for E2EE
+    const pkCheck = await db.query(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_name = 'users' AND column_name = 'public_key'
+    `);
+    if (pkCheck.rows.length === 0) {
+      await db.query('ALTER TABLE users ADD COLUMN public_key TEXT');
+      console.log('✅ Added public_key column to users table');
+    }
+
+    // Add is_encrypted column for E2EE
+    const encCheck = await db.query(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_name = 'messages' AND column_name = 'is_encrypted'
+    `);
+    if (encCheck.rows.length === 0) {
+      await db.query('ALTER TABLE messages ADD COLUMN is_encrypted BOOLEAN DEFAULT FALSE');
+      console.log('✅ Added is_encrypted column to messages table');
     }
 
     // Add tag column to users if missing
@@ -611,7 +632,7 @@ app.post('/api/login', async (req, res) => {
         }
 
         const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '24h' });
-        res.json({ token, user: { id: user.id, username: user.username, preferred_theme: user.preferred_theme, tag: user.tag } });
+        res.json({ token, user: { id: user.id, username: user.username, preferred_theme: user.preferred_theme, tag: user.tag, public_key: user.public_key } });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -656,7 +677,7 @@ app.post('/auth/google', async (req, res) => {
         }
 
         const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '24h' });
-        res.json({ token, user: { id: user.id, username: user.username, preferred_theme: user.preferred_theme, avatar_url: picture, tag: user.tag } });
+        res.json({ token, user: { id: user.id, username: user.username, preferred_theme: user.preferred_theme, avatar_url: picture, tag: user.tag, public_key: user.public_key } });
     } catch (err) {
         console.error('Google Auth Error:', err);
         res.status(400).json({ error: 'Google authentication failed' });
@@ -667,6 +688,29 @@ app.post('/auth/google', async (req, res) => {
 app.post('/upload', upload.single('file'), (req, res) => {
     if (!req.file) return res.status(400).send('No file uploaded.');
     res.json({ url: `/uploads/${req.file.filename}`, name: req.file.originalname });
+});
+
+// --- E2EE KEY MANAGEMENT ---
+
+app.post('/api/user/public-key', async (req, res) => {
+    const { userId, publicKey } = req.body;
+    if (!userId || !publicKey) return res.status(400).json({ error: 'User ID and Public Key are required' });
+    try {
+        await db.query('UPDATE users SET public_key = $1 WHERE id = $2', [publicKey, userId]);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/user/:id/public-key', async (req, res) => {
+    try {
+        const result = await db.query('SELECT public_key FROM users WHERE id = $1', [req.params.id]);
+        if (result.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+        res.json({ publicKey: result.rows[0].public_key });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // --- USERS ---
@@ -1360,6 +1404,7 @@ io.on('connection', (socket) => {
             text: data.text,
             time: data.time || new Date().toLocaleTimeString(),
             room: room,
+            isEncrypted: data.isEncrypted || false,
             id: Date.now() // temporary ID if DB fails
         };
 
@@ -1367,8 +1412,8 @@ io.on('connection', (socket) => {
             const groupId = data.groupId || null;
             const parentId = data.parentId || null;
             const res = await db.query(
-                'INSERT INTO messages (user_id, sender, text, time, room, group_id, parent_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, created_at',
-                [socket.user.id, socket.user.username, data.text, data.time, room, groupId, parentId]
+                'INSERT INTO messages (user_id, sender, text, time, room, group_id, parent_id, is_encrypted) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, created_at',
+                [socket.user.id, socket.user.username, data.text, data.time, room, groupId, parentId, data.isEncrypted || false]
             );
             payload.id = res.rows[0].id;
             payload.created_at = res.rows[0].created_at;
@@ -1445,6 +1490,16 @@ io.on('connection', (socket) => {
         // data: { toRoom | toSocket }
         if (data.toRoom) socket.to(data.toRoom).emit('call:end');
         if (data.toSocket) io.to(data.toSocket).emit('call:end');
+    });
+
+    // Whiteboard Sync
+    socket.on('whiteboard:draw', (data) => {
+        // data: { room, x0, y0, x1, y1, color, width }
+        socket.to(data.room).emit('whiteboard:draw', data);
+    });
+
+    socket.on('whiteboard:clear', (room) => {
+        socket.to(room).emit('whiteboard:clear');
     });
 
     // clear all messages (admin action)

@@ -384,7 +384,7 @@ function sendInvite() {
 }
 
 // --- CORE CHAT LOGIC ---
-function sendMessage() {
+async function sendMessage() {
     const inputDom = document.getElementById('input');
     if (inputDom.value) {
         if (editingMsgId) {
@@ -393,10 +393,28 @@ function sendMessage() {
             return;
         }
 
+        let text = inputDom.value;
+        let isEncrypted = false;
+        let encryptedData = null;
+
+        // Check if DM for E2EE
+        if (currentRoom.startsWith('dm_')) {
+            const parts = currentRoom.split('_');
+            const targetUserId = parseInt(parts[1]) === authUser.id ? parseInt(parts[2]) : parseInt(parts[1]);
+            
+            const encryption = await encryptE2EE(text, targetUserId);
+            if (encryption.isEncrypted) {
+                isEncrypted = true;
+                encryptedData = encryption;
+                text = JSON.stringify(encryption); // Store as JSON string in DB
+            }
+        }
+
         const payload = {
             user: currentUser || 'Guest',
             userId: authUser ? authUser.id : null,
-            text: inputDom.value,
+            text: text,
+            isEncrypted: isEncrypted,
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             room: currentRoom,
             groupId: currentGroupId,
@@ -1051,6 +1069,20 @@ async function loadMessages(isLoadMore = false) {
             return;
         }
 
+        // Decrypt E2EE messages in history
+        for (const msg of data) {
+            if (msg.is_encrypted) {
+                try {
+                    const encryptedPayload = JSON.parse(msg.text);
+                    const isMe = msg.user_id === authUser.id;
+                    const targetId = isMe ? (await getTargetUserIdFromRoom(msg.room)) : msg.user_id;
+                    msg.text = await decryptE2EE(encryptedPayload, targetId);
+                } catch (e) {
+                    msg.text = '⚠️ Signal Encryption Mismatch';
+                }
+            }
+        }
+
         if (isLoadMore) {
             // Prepend older messages at the top
             data.forEach(msg => prependMessage(msg, true));
@@ -1120,7 +1152,10 @@ function prependMessage(data, atTop = true) {
                 </div>
                 <div class="p-4 rounded-[2rem] shadow-xl ${isMe ? 'rounded-tr-none text-white' : 'rounded-tl-none'} glass border border-white/[0.03] transition-all" 
                      style="${isMe ? 'background:var(--bubble-me); border-color:rgba(255,255,255,0.1)' : 'background:var(--bubble-them)'}">
-                    <p class="text-sm leading-relaxed font-medium">${parseMessageContent(data.text)}</p>
+                    <div class="flex items-start gap-2">
+                        <p class="text-sm leading-relaxed font-medium">${parseMessageContent(data.text)}</p>
+                        ${data.isEncrypted || data.is_encrypted ? '<i class="fas fa-shield-alt text-[10px] text-indigo-400 mt-1" title="End-to-End Encrypted"></i>' : ''}
+                    </div>
                     ${data.ephemeral ? '<p class="text-[8px] italic opacity-50 mt-1">Ephemeral - Not saved to archive</p>' : ''}
                 </div>
                 <div class="reactions flex flex-wrap gap-1.5 mt-2">${renderReactions(data.id, data.reactions)}</div>
@@ -1311,9 +1346,16 @@ socket.on('group:deleted', (data) => {
     fetchGroups();
 });
 
-socket.on('chat message', (data) => {
+socket.on('chat message', async (data) => {
     const isMe = data.sender === currentUser;
     const isCommand = data.isCommand;
+
+    if (data.isEncrypted) {
+        const encryptedPayload = JSON.parse(data.text);
+        // For DMs, the target user for derivation is the OTHER person
+        const targetId = isMe ? (await getTargetUserIdFromRoom(data.room)) : data.userId;
+        data.text = await decryptE2EE(encryptedPayload, targetId);
+    }
 
     if (data.room === currentRoom) {
         prependMessage(data, false);
@@ -1616,6 +1658,132 @@ document.getElementById('clear-chat').addEventListener('click', () => {
     }
 });
 
+async function getTargetUserIdFromRoom(roomName) {
+    if (!roomName.startsWith('dm_')) return null;
+    const parts = roomName.split('_');
+    return parseInt(parts[1]) === authUser.id ? parseInt(parts[2]) : parseInt(parts[1]);
+}
+
+// ─── END-TO-END ENCRYPTION (E2EE) ENGINE ───
+let userKeyPair = null;
+let sharedKeys = new Map(); // targetUserId -> AESKey
+
+async function initE2EE() {
+    if (!window.crypto || !window.crypto.subtle) {
+        console.warn('⚠️ Web Crypto API not supported. E2EE disabled.');
+        return;
+    }
+
+    try {
+        const storedKeys = localStorage.getItem('vortex_e2ee_keys');
+        if (storedKeys) {
+            const keys = JSON.parse(storedKeys);
+            userKeyPair = {
+                publicKey: await crypto.subtle.importKey('jwk', keys.publicKey, { name: 'ECDH', namedCurve: 'P-256' }, true, []),
+                privateKey: await crypto.subtle.importKey('jwk', keys.privateKey, { name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveKey'])
+            };
+            console.log('🛡️ E2EE Keys loaded from deep storage.');
+        } else {
+            userKeyPair = await crypto.subtle.generateKey(
+                { name: 'ECDH', namedCurve: 'P-256' },
+                true,
+                ['deriveKey']
+            );
+            const publicKeyJWK = await crypto.subtle.exportKey('jwk', userKeyPair.publicKey);
+            const privateKeyJWK = await crypto.subtle.exportKey('jwk', userKeyPair.privateKey);
+            
+            localStorage.setItem('vortex_e2ee_keys', JSON.stringify({
+                publicKey: publicKeyJWK,
+                privateKey: privateKeyJWK
+            }));
+
+            // Upload public key to server
+            if (authUser) {
+                await fetch('/api/user/public-key', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: authUser.id, publicKey: JSON.stringify(publicKeyJWK) })
+                });
+            }
+            console.log('🛡️ New E2EE Keys generated and synchronized.');
+        }
+    } catch (err) {
+        console.error('E2EE Init Error:', err);
+    }
+}
+
+async function getSharedKeyForUser(targetUserId) {
+    if (sharedKeys.has(targetUserId)) return sharedKeys.get(targetUserId);
+
+    try {
+        const res = await fetch(`/api/user/${targetUserId}/public-key`);
+        const data = await res.json();
+        if (!data.publicKey) return null;
+
+        const targetPubKey = await crypto.subtle.importKey(
+            'jwk',
+            JSON.parse(data.publicKey),
+            { name: 'ECDH', namedCurve: 'P-256' },
+            true,
+            []
+        );
+
+        const sharedKey = await crypto.subtle.deriveKey(
+            { name: 'ECDH', public: targetPubKey },
+            userKeyPair.privateKey,
+            { name: 'AES-GCM', length: 256 },
+            false,
+            ['encrypt', 'decrypt']
+        );
+
+        sharedKeys.set(targetUserId, sharedKey);
+        return sharedKey;
+    } catch (err) {
+        console.error('Shared Key Derivation Error:', err);
+        return null;
+    }
+}
+
+async function encryptE2EE(text, targetUserId) {
+    const key = await getSharedKeyForUser(targetUserId);
+    if (!key) return { text, isEncrypted: false };
+
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const encoded = new TextEncoder().encode(text);
+    const ciphertext = await crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv },
+        key,
+        encoded
+    );
+
+    return {
+        ciphertext: btoa(String.fromCharCode(...new Uint8Array(ciphertext))),
+        iv: btoa(String.fromCharCode(...iv)),
+        isEncrypted: true
+    };
+}
+
+async function decryptE2EE(encryptedData, targetUserId) {
+    const key = await getSharedKeyForUser(targetUserId);
+    if (!key) return '⚠️ Decryption Failed: No Shared Key';
+
+    try {
+        const ciphertext = new Uint8Array(atob(encryptedData.ciphertext).split('').map(c => c.charCodeAt(0)));
+        const iv = new Uint8Array(atob(encryptedData.iv).split('').map(c => c.charCodeAt(0)));
+
+        const decrypted = await crypto.subtle.decrypt(
+            { name: 'AES-GCM', iv },
+            key,
+            ciphertext
+        );
+
+        return new TextDecoder().decode(decrypted);
+    } catch (err) {
+        console.error('Decryption Error:', err);
+        return '⚠️ Decryption Failed: Signal Corrupted';
+    }
+}
+
 // --- INITIALIZATION ---
 const savedTheme = localStorage.getItem('chat-theme') || 'dark';
 applyTheme(savedTheme);
@@ -1623,6 +1791,7 @@ applyTheme(savedTheme);
 // Load groups first, then auto-join
 (async () => {
     initCharts();
+    await initE2EE();
     if (authToken && authUser) {
         connectSocket();
     } else {
@@ -1712,7 +1881,7 @@ async function initiateCall(type = 'video') {
         document.getElementById('call-status-text').innerText = 'Requesting Neural Connection...';
         
         socket.emit('call:request', {
-            toRoom: activeRoom,
+            toRoom: currentRoom,
             fromUser: authUser.username,
             type: type
         });
@@ -1757,7 +1926,7 @@ function rejectCall() {
 }
 
 function endCall() {
-    socket.emit('call:end', { toRoom: activeRoom });
+    socket.emit('call:end', { toRoom: currentRoom });
     cleanupCall();
 }
 
@@ -1988,3 +2157,111 @@ showUserHoverCard = function(userId, username, element) {
     }
     populateTelemetry();
 };
+
+// ─── WHITEBOARD LOGIC ───
+let isDrawing = false;
+let x = 0;
+let y = 0;
+let whiteboardCanvas, whiteboardCtx;
+
+function initWhiteboard() {
+    whiteboardCanvas = document.getElementById('whiteboard-canvas');
+    whiteboardCtx = whiteboardCanvas.getContext('2d');
+    
+    // Resize canvas to fill container
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    whiteboardCanvas.addEventListener('mousedown', startDrawing);
+    whiteboardCanvas.addEventListener('mousemove', draw);
+    whiteboardCanvas.addEventListener('mouseup', stopDrawing);
+    whiteboardCanvas.addEventListener('mouseout', stopDrawing);
+
+    // Touch support
+    whiteboardCanvas.addEventListener('touchstart', (e) => { e.preventDefault(); startDrawing(e.touches[0]); });
+    whiteboardCanvas.addEventListener('touchmove', (e) => { e.preventDefault(); draw(e.touches[0]); });
+    whiteboardCanvas.addEventListener('touchend', stopDrawing);
+}
+
+function resizeCanvas() {
+    const container = whiteboardCanvas.parentElement;
+    whiteboardCanvas.width = container.clientWidth;
+    whiteboardCanvas.height = container.clientHeight;
+}
+
+function startDrawing(e) {
+    isDrawing = true;
+    [x, y] = getMousePos(e);
+}
+
+function draw(e) {
+    if (!isDrawing) return;
+    const [x1, y1] = getMousePos(e);
+    const color = document.getElementById('whiteboard-color').value;
+    const width = document.getElementById('whiteboard-width').value;
+
+    drawLine(x, y, x1, y1, color, width, true);
+    [x, y] = [x1, y1];
+}
+
+function stopDrawing() {
+    isDrawing = false;
+}
+
+function getMousePos(e) {
+    const rect = whiteboardCanvas.getBoundingClientRect();
+    return [e.clientX - rect.left, e.clientY - rect.top];
+}
+
+function drawLine(x0, y0, x1, y1, color, width, emit) {
+    whiteboardCtx.beginPath();
+    whiteboardCtx.moveTo(x0, y0);
+    whiteboardCtx.lineTo(x1, y1);
+    whiteboardCtx.strokeStyle = color;
+    whiteboardCtx.lineWidth = width;
+    whiteboardCtx.lineCap = 'round';
+    whiteboardCtx.stroke();
+    whiteboardCtx.closePath();
+
+    if (!emit) return;
+
+    socket.emit('whiteboard:draw', {
+        room: currentRoom,
+        x0: x0 / whiteboardCanvas.width,
+        y0: y0 / whiteboardCanvas.height,
+        x1: x1 / whiteboardCanvas.width,
+        y1: y1 / whiteboardCanvas.height,
+        color,
+        width
+    });
+}
+
+function clearWhiteboard(emit = true) {
+    whiteboardCtx.clearRect(0, 0, whiteboardCanvas.width, whiteboardCanvas.height);
+    if (emit) {
+        socket.emit('whiteboard:clear', currentRoom);
+    }
+}
+
+function toggleWhiteboard() {
+    const overlay = document.getElementById('whiteboard-overlay');
+    const isActive = overlay.classList.toggle('active');
+    if (isActive && !whiteboardCanvas) {
+        initWhiteboard();
+    }
+    if (isActive) {
+        resizeCanvas();
+    }
+}
+
+// Socket Listeners for Whiteboard
+socket.on('whiteboard:draw', (data) => {
+    const w = whiteboardCanvas.width;
+    const h = whiteboardCanvas.height;
+    drawLine(data.x0 * w, data.y0 * h, data.x1 * w, data.y1 * h, data.color, data.width, false);
+});
+
+socket.on('whiteboard:clear', () => {
+    clearWhiteboard(false);
+});
+
