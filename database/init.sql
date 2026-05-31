@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS messages (
 
 CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
 CREATE INDEX IF NOT EXISTS idx_messages_group_id ON messages(group_id);
+CREATE INDEX IF NOT EXISTS idx_messages_room_created_at ON messages(room, created_at DESC);
 
 -- Reactions Table
 CREATE TABLE IF NOT EXISTS reactions (
@@ -42,6 +43,7 @@ CREATE TABLE IF NOT EXISTS reactions (
   emoji TEXT NOT NULL,
   UNIQUE(message_id, user_id, emoji)
 );
+CREATE INDEX IF NOT EXISTS idx_reactions_message_id ON reactions(message_id);
 
 -- Seed default channels
 INSERT INTO groups (name, created_by) VALUES
@@ -58,3 +60,13 @@ CREATE TABLE IF NOT EXISTS group_members (
     joined_at TIMESTAMP DEFAULT NOW(),
     UNIQUE(group_id, user_id)
 );
+
+-- Message Reads Table
+CREATE TABLE IF NOT EXISTS message_reads (
+  id SERIAL PRIMARY KEY,
+  message_id INT REFERENCES messages(id) ON DELETE CASCADE,
+  user_id INT REFERENCES users(id) ON DELETE CASCADE,
+  read_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(message_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_message_reads_message_id ON message_reads(message_id);

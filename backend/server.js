@@ -71,12 +71,12 @@ const limiter = rateLimit({
     legacyHeaders: false,  // Disable the `X-RateLimit-*` headers
 });
 
-// Apply to all routes
-app.use(limiter);
-
 const oneDay = 86400000;
 app.use(express.static(staticPath, { maxAge: oneDay }));
 app.use('/uploads', express.static(path.join(staticPath, 'uploads')));
+
+// Apply rate limiting to all API/Auth routes (exclude static assets)
+app.use(limiter);
 
 const UPLOADS_DIR = path.join(staticPath, 'uploads');
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
@@ -98,7 +98,7 @@ let db;
 
 // Function to create a fresh DB Pool
 function createDbPool() {
-  return new Pool({
+  const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     host: process.env.DB_HOST || 'db-service',
     user: process.env.DB_USER || 'postgres',
@@ -107,6 +107,12 @@ function createDbPool() {
     port: 5432,
     ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
   });
+  
+  pool.on('error', (err, client) => {
+    console.error('⚠️ Unexpected error on idle DB client:', err);
+  });
+  
+  return pool;
 }
 
 // Properly initialize database connection with retries
@@ -395,6 +401,12 @@ async function runMigrations() {
       )
     `);
     console.log('✅ Message reads table ready');
+
+    // Add performance indexes
+    await db.query('CREATE INDEX IF NOT EXISTS idx_messages_room_created_at ON messages(room, created_at DESC)');
+    await db.query('CREATE INDEX IF NOT EXISTS idx_reactions_message_id ON reactions(message_id)');
+    await db.query('CREATE INDEX IF NOT EXISTS idx_message_reads_message_id ON message_reads(message_id)');
+    console.log('✅ Performance indexes created');
 
   } catch (err) {
     console.warn('⚠️ Migration warning (non-fatal):', err.message);
