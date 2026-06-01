@@ -1501,9 +1501,16 @@ socket.on('online:list', (list) => {
     renderUsers();
 });
 
-socket.on('user:online', (data) => {
+socket.on('user:online', async (data) => {
     onlineUsernames.add(data.username);
-    const matchedUserId = allUsers.find(user => user?.username === data.username)?.id;
+    let matchedUserId = allUsers.find(user => user?.username === data.username)?.id;
+
+    // If this user isn't in our local list, they registered after we loaded — re-fetch.
+    if (!matchedUserId) {
+        await fetchAndRenderUsers();
+        matchedUserId = allUsers.find(user => user?.username === data.username)?.id;
+    }
+
     if (matchedUserId) onlineUserIds.add(matchedUserId);
     renderUsers();
     toast(`${data.username} is online`);
@@ -2246,22 +2253,28 @@ function clearWhiteboard(emit = true) {
 function toggleWhiteboard() {
     const overlay = document.getElementById('whiteboard-overlay');
     const isActive = overlay.classList.toggle('active');
-    if (isActive && !whiteboardCanvas) {
-        initWhiteboard();
-    }
     if (isActive) {
-        resizeCanvas();
+        // Defer init + resize to the next frame so the overlay has display:flex
+        // and the container has real dimensions for the canvas.
+        requestAnimationFrame(() => {
+            if (!whiteboardCanvas) {
+                initWhiteboard();
+            }
+            resizeCanvas();
+        });
     }
 }
 
 // Socket Listeners for Whiteboard
 socket.on('whiteboard:draw', (data) => {
+    if (!whiteboardCanvas || !whiteboardCtx) return;
     const w = whiteboardCanvas.width;
     const h = whiteboardCanvas.height;
     drawLine(data.x0 * w, data.y0 * h, data.x1 * w, data.y1 * h, data.color, data.width, false);
 });
 
 socket.on('whiteboard:clear', () => {
+    if (!whiteboardCanvas || !whiteboardCtx) return;
     clearWhiteboard(false);
 });
 
