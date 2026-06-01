@@ -1148,7 +1148,7 @@ function prependMessage(data, atTop = true) {
             <div class="relative flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[75%]">
                 <div class="flex items-center gap-3 mb-1 px-1">
                     ${!isMe ? `<span class="text-[10px] font-black uppercase text-indigo-400 tracking-widest cursor-pointer hover:underline user-profile-trigger" data-user-id="${userId}">${data.sender}<span class="text-white/20 font-normal ml-0.5">#${data.tag || '????'}</span></span>` : `<span class="text-[10px] font-black uppercase text-white/40 tracking-widest cursor-pointer hover:underline user-profile-trigger" data-user-id="${userId}">You<span class="text-white/10 font-normal ml-0.5">#${authUser?.tag || '????'}</span></span>`}
-                    <span class="text-[9px] font-bold opacity-30 text-white uppercase tracking-tighter">${data.time}</span>
+                    <span class="text-[9px] font-bold opacity-30 text-white uppercase tracking-tighter">${data.time} ${data.updated_at ? '<span class="edited-badge text-[8px] lowercase opacity-60">(edited)</span>' : ''}</span>
                 </div>
                 <div class="p-4 rounded-[2rem] shadow-xl ${isMe ? 'rounded-tr-none text-white' : 'rounded-tl-none'} glass border border-white/[0.03] transition-all" 
                      style="${isMe ? 'background:var(--bubble-me); border-color:rgba(255,255,255,0.1)' : 'background:var(--bubble-them)'}">
@@ -1169,6 +1169,7 @@ function prependMessage(data, atTop = true) {
                         <button onclick="addReaction(${data.id}, '❤️')" class="hover:scale-125 transition-transform">❤️</button>
                         <button onclick="addReaction(${data.id}, '🔥')" class="hover:scale-125 transition-transform">🔥</button>
                         <button onclick="openReactionPicker(event, ${data.id})" class="hover:scale-125 transition-transform text-[10px] text-white/40 hover:text-white"><i class="fas fa-plus"></i></button>
+                        ${isMe ? `<button onclick="startEdit(${data.id}, this.dataset.text)" data-text="${(data.text || '').replace(/"/g, '&quot;')}" class="hover:text-blue-500 transition-colors ml-1"><i class="fas fa-edit text-[10px]"></i></button>` : ''}
                         ${isMe ? `<button onclick="deleteMessage(${data.id})" class="hover:text-red-500 transition-colors ml-1"><i class="fas fa-trash-alt text-[10px]"></i></button>` : ''}
                     </div>
                 </div>
@@ -2278,3 +2279,33 @@ socket.on('whiteboard:clear', () => {
     clearWhiteboard(false);
 });
 
+
+// --- MESSAGE EDIT & DELETE EVENTS ---
+socket.on('messageDeleted', (msgId) => {
+    const msgEl = document.getElementById('msg-' + msgId);
+    if (msgEl) {
+        msgEl.innerHTML = `
+            <div class="w-full text-center p-2 opacity-50 italic text-[10px]">
+                <i class="fas fa-trash-alt mr-1"></i> This message was deleted.
+            </div>`;
+    }
+});
+
+socket.on('messageEdited', (data) => {
+    const msgEl = document.getElementById('msg-' + data.msgId);
+    if (msgEl) {
+        const textContainer = msgEl.querySelector('p.text-sm');
+        if (textContainer) {
+            textContainer.innerHTML = parseMessageContent(data.newText);
+        }
+        const editBtn = msgEl.querySelector('.fa-edit')?.parentElement;
+        if (editBtn) editBtn.setAttribute('data-text', data.newText);
+        
+        if (!msgEl.querySelector('.edited-badge')) {
+            const timeSpan = msgEl.querySelector('.text-\\[9px\\].uppercase');
+            if (timeSpan) {
+                timeSpan.innerHTML += ' <span class="edited-badge text-[8px] lowercase opacity-60">(edited)</span>';
+            }
+        }
+    }
+});

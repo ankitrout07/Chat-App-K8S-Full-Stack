@@ -575,6 +575,11 @@ function setupMemoryFallback() {
         const pins = memoryStore.messages.filter(m => m.room === params[0] && m.is_pinned).sort((a,b) => b.created_at - a.created_at);
         return { rows: pins };
       }
+      if (text.includes('DELETE FROM messages WHERE id = $1 AND user_id = $2')) {
+        const idx = memoryStore.messages.findIndex(m => m.id === params[0] && m.user_id === params[1]);
+        if (idx !== -1) { memoryStore.messages.splice(idx, 1); return { rows: [{ id: params[0] }] }; }
+        return { rows: [] };
+      }
       return { rows: [] };
     }
   };
@@ -780,7 +785,7 @@ app.get('/messages', async (req, res) => {
     const room = req.query.room || 'general';
     try {
         const result = await db.query(
-            `SELECT m.id, m.sender, m.text, m.time, m.delivered_at, m.read_at, m.created_at, m.user_id, m.room, m.parent_id, u.avatar_url, u.tag,
+            `SELECT m.id, m.sender, m.text, m.time, m.delivered_at, m.read_at, m.created_at, m.updated_at, m.user_id, m.room, m.parent_id, u.avatar_url, u.tag,
             (SELECT json_agg(re) FROM (SELECT r.emoji, r.user_id, u.username FROM reactions r JOIN users u ON r.user_id = u.id WHERE r.message_id = m.id) re) as reactions,
             (SELECT json_agg(rd) FROM (SELECT mr.user_id, u.username, u.avatar_url FROM message_reads mr JOIN users u ON mr.user_id = u.id WHERE mr.message_id = m.id) rd) as readers
             FROM messages m 
@@ -1322,9 +1327,11 @@ io.on('connection', (socket) => {
     // message deletion (also persist in DB)
     socket.on('deleteRequest', async (msgId) => {
         try {
-            await db.query('DELETE FROM messages WHERE id = $1', [msgId]);
-            io.emit('messageDeleted', msgId);
-            console.log(`🗑️ Message ${msgId} deleted and broadcasted.`);
+            const result = await db.query('DELETE FROM messages WHERE id = $1 AND user_id = $2 RETURNING id', [msgId, socket.user.id]);
+            if (result.rows.length > 0) {
+                io.emit('messageDeleted', msgId);
+                console.log(`🗑️ Message ${msgId} deleted by ${socket.user.username}.`);
+            }
         } catch (err) { console.error('Deletion Error:', err); }
     });
 
