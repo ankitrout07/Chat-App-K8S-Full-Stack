@@ -2,6 +2,7 @@
   "name": "chat-app-k8s-full-stack",
   "private": true,
   "scripts": {
-    "start": "node backend/server.js"
+    "start": "node backend/server.js",
+    "postinstall": "npm install --prefix backend"
   }
 }

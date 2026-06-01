@@ -69,6 +69,7 @@ jobs:
         with:
           name: node-app
           path: |
+            ./package.json
             ./backend/
             !./backend/node_modules/
 
@@ -114,7 +115,7 @@ jobs:
             az webapp create --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --plan ${{ env.AZURE_PLAN_NAME }} --runtime "NODE:20-lts"
           fi
           az webapp config appsettings set --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --settings SCM_DO_BUILD_DURING_DEPLOYMENT=true
-          az webapp config set --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --startup-file "node server.js"
+          az webapp config set --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --startup-file "npm start"
           az webapp config set --name ${{ env.AZURE_WEBAPP_NAME }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --always-on true
 
   # 6. Final Gated Job: Deployment

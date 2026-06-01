@@ -13,6 +13,8 @@ Vortex Chat is a full-stack real-time chat application built with Node.js, Expre
 - File uploads served from `/uploads`
 - Reactions, pinned messages, threaded replies, delivery state, and read state
 - Message search backed by PostgreSQL full-text indexing
+- Highly optimized database queries with composite and foreign key indexes
+- Connection pool error handling and scoped API rate limiting for production stability
 - Username/password auth plus optional Google sign-in
 - Built-in slash commands such as `/help`, `/stats`, `/db-health`, and `/redis-health`
 - Kubernetes manifests for app, PostgreSQL, Redis, and ingress
@@ -181,12 +183,14 @@ Core schema includes:
 - `messages`
 - `reactions`
 - `group_members`
+- `message_reads`
 
 On startup, the app also applies incremental schema updates such as:
 
 - `google_id`, `avatar_url`, `bio`, `status_text`, and `status_emoji` on `users`
 - `parent_id`, `is_pinned`, `updated_at`, and `tsv` on `messages`
 - a trigger-backed full-text search index on message content
+- performance indexes for room history, reactions, and message reads
 
 ## Docker
 
