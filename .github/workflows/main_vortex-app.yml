@@ -46,7 +46,6 @@ jobs:
           path: |
             ./package.json
             ./backend/
-            !./backend/node_modules/
 
   deploy:
     runs-on: ubuntu-latest
@@ -77,7 +76,7 @@ jobs:
           az webapp config appsettings set \
             --name ${{ env.AZURE_WEBAPP_NAME }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --settings SCM_DO_BUILD_DURING_DEPLOYMENT=true WEBSITE_NODE_DEFAULT_VERSION="~24"
+            --settings WEBSITE_NODE_DEFAULT_VERSION="~24"
 
       - name: 'Deploy to Azure Web App'
         id: deploy-to-webapp
