@@ -1,7 +1,8 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
-# More GitHub Actions for Azure: https://github.com/Azure/actions
+# Deploy to Azure App Service — Vortex Chat
+# This is the ONLY workflow that deploys to Azure.
+# main.yml handles CI (lint + docker) only.
 
-name: Build and deploy Node.js app to Azure Web App - vortex-app
+name: 🚀 Deploy to Azure App Service
 
 on:
   push:
@@ -21,41 +22,55 @@ on:
 env:
   AZURE_RESOURCE_GROUP: ${{ github.event.inputs.resource_group || 'Dev-Test-RG' }}
   AZURE_WEBAPP_NAME: ${{ github.event.inputs.app_name || 'vortex-app' }}
+  NODE_VERSION: '20.x'
 
 jobs:
   build:
+    name: 🏗️ Build
     runs-on: ubuntu-latest
     permissions:
-      contents: read #This is required for actions/checkout
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Node.js version
-        uses: actions/setup-node@v3
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: '24.x'
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
 
-      - name: npm install (backend dependencies)
-        run: cd backend && npm install
+      - name: Install production dependencies
+        # --omit=dev keeps node_modules lean for production
+        run: cd backend && npm ci --omit=dev
 
-      - name: Upload artifact for deployment job
+      - name: Zip artifact (backend only)
+        # Zip preserves directory structure and is faster to upload than raw folder
+        run: |
+          cd backend
+          zip -r ../node-app.zip . \
+            --exclude "*.env" \
+            --exclude ".env*" \
+            --exclude ".dockerignore"
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: node-app
-          path: |
-            ./package.json
-            ./backend/
+          path: node-app.zip
+          retention-days: 1
 
   deploy:
+    name: 🚀 Deploy
     runs-on: ubuntu-latest
     needs: build
     permissions:
-      id-token: write #This is required for requesting the JWT
-      contents: read #This is required for actions/checkout
+      id-token: write
+      contents: read
 
     steps:
-      - name: Download artifact from build job
+      - name: Download artifact
         uses: actions/download-artifact@v4
         with:
           name: node-app
@@ -67,22 +82,52 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_CFD4A765E8404C2893FB02179646C101 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_898A865A05AD43F9858A96AF3CB108A4 }}
 
-      - name: Configure Azure App settings
+      - name: Configure Azure App Settings
+        # Set these BEFORE deploy so the app boots with correct config on first start
         run: |
           az webapp config set \
             --name ${{ env.AZURE_WEBAPP_NAME }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --startup-file "npm start"
+            --startup-file "node server.js" \
+            --linux-fx-version "NODE|20-lts"
           az webapp config appsettings set \
             --name ${{ env.AZURE_WEBAPP_NAME }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --settings WEBSITE_NODE_DEFAULT_VERSION="~24"
+            --settings \
+              WEBSITE_NODE_DEFAULT_VERSION="~20" \
+              SCM_DO_BUILD_DURING_DEPLOYMENT="false" \
+              NODE_ENV="production" \
+              WEBSITE_RUN_FROM_PACKAGE="0"
 
-      - name: 'Deploy to Azure Web App'
+      - name: Deploy to Azure Web App
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           slot-name: 'Production'
-          package: .
-          
+          package: node-app.zip
+
+      - name: Restart App (ensure fresh boot)
+        run: |
+          az webapp restart \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }}
+
+      - name: Smoke Test
+        # Wait for app to boot, then verify /health returns 200
+        run: |
+          echo "⏳ Waiting 20s for app to boot..."
+          sleep 20
+          APP_URL="https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net"
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${APP_URL}/health")
+          echo "📡 Health check → HTTP ${STATUS}"
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Smoke test FAILED (status: ${STATUS})"
+            echo "Fetching last 50 lines of app logs..."
+            az webapp log tail \
+              --name ${{ env.AZURE_WEBAPP_NAME }} \
+              --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+              --timeout 10 || true
+            exit 1
+          fi
+          echo "✅ Smoke test PASSED — app is live at ${APP_URL}"

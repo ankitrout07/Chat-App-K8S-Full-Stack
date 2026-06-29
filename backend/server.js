@@ -601,9 +601,16 @@ async function generateUniqueTag() {
 
 // Setup Redis adapter for Socket.IO clustering
 
+// redis v4+: top-level `host`/`port` are silently ignored — must use `socket: { host, port }`
 const redisClient = createClient({
-  host: process.env.REDIS_HOST || 'redis-service',
-  port: process.env.REDIS_PORT || 6379,
+  socket: {
+    host: process.env.REDIS_HOST || 'redis-service',
+    port: parseInt(process.env.REDIS_PORT || '6379', 10),
+    reconnectStrategy: (retries) => {
+      if (retries > 5) return false; // stop retrying after 5 attempts
+      return Math.min(retries * 500, 3000);
+    }
+  }
 });
 
 async function initializeRedis() {
@@ -617,6 +624,9 @@ async function initializeRedis() {
     console.warn('⚠️ Redis not available, running without clustering:', err.message);
   }
 }
+
+// --- HEALTH CHECK (registered first — Azure probe fires immediately on boot) ---
+app.get('/health', (req, res) => res.status(200).json({ status: 'ok', uptime: Math.floor(process.uptime()) }));
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(staticPath, 'index.html'));
@@ -1531,16 +1541,15 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Vortex v14 Control Live on port ${PORT}`));
 
-// Health check for Azure/K8s
-app.get('/health', (req, res) => res.status(200).send('OK'));
-
-// Initialize all services on startup
+// Initialize services BEFORE accepting traffic so the app is fully ready on first request
 (async () => {
   await initializeDB();
   await initializeRedis();
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 Vortex Chat live on port ${PORT} | ENV: ${process.env.NODE_ENV || 'development'}`);
+  });
 })().catch(err => {
-  console.error('Startup failed:', err);
+  console.error('❌ Startup failed:', err);
   process.exit(1);
 });
